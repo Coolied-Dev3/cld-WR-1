@@ -1,0 +1,286 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  member
+  manager
+  executive
+  admin
+}
+
+enum ReportStatus {
+  draft
+  submitted
+  locked
+}
+
+enum SelfRating {
+  excellent // ◎
+  good      // ○
+  fair      // △
+  poor      // ✕
+}
+
+enum ComplianceLevel {
+  none
+  concern
+  issue
+}
+
+enum ComplianceVisibility {
+  manager_and_executive
+  executive_only
+}
+
+enum NotificationType {
+  reminder
+  overdue
+  comment
+  submitted
+  alert
+}
+
+enum NotificationStatus {
+  success
+  failed
+}
+
+model User {
+  id                 BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  employeeCode       String?  @unique @map("employee_code") @db.VarChar(20)
+  name               String   @db.VarChar(100)
+  email              String   @unique @db.VarChar(255)
+  password           String   @db.VarChar(255) // 平文管理(ローカル運用の割り切り)
+  role               Role
+  mustChangePassword Boolean  @default(true) @map("must_change_password")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  memberships        TeamMembership[]
+  reports            WeeklyReport[]
+  comments           Comment[]
+  confirmations      ReportConfirmation[]
+  complianceViews    ComplianceViewLog[]
+  notificationLogs   NotificationLog[]
+  auditLogs          AuditLog[]
+
+  @@map("users")
+}
+
+model Team {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships TeamMembership[]
+  reports     WeeklyReport[]
+
+  @@map("teams")
+}
+
+model TeamMembership {
+  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId    BigInt    @map("user_id") @db.UnsignedBigInt
+  teamId    BigInt    @map("team_id") @db.UnsignedBigInt
+  isLeader  Boolean   @default(false) @map("is_leader")
+  startDate DateTime  @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@index([userId, endDate])
+  @@index([teamId, endDate])
+  @@map("team_memberships")
+}
+
+model WeeklyReport {
+  id            BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  userId        BigInt       @map("user_id") @db.UnsignedBigInt
+  teamId        BigInt       @map("team_id") @db.UnsignedBigInt
+  weekStartDate DateTime     @map("week_start_date") @db.Date
+  status        ReportStatus @default(draft)
+  workSummary   String       @map("work_summary") @db.Text
+  selfRating    SelfRating   @map("self_rating")
+  submittedAt   DateTime?    @map("submitted_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  user          User                 @relation(fields: [userId], references: [id])
+  team          Team                 @relation(fields: [teamId], references: [id])
+  issues        ReportIssue[]
+  compliance    ComplianceReport?
+  comments      Comment[]
+  confirmations ReportConfirmation[]
+
+  @@unique([userId, weekStartDate])
+  @@index([teamId, weekStartDate])
+  @@index([weekStartDate])
+  @@map("weekly_reports")
+}
+
+model IssueCategory {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  parentId  BigInt?  @map("parent_id") @db.UnsignedBigInt
+  name      String   @db.VarChar(100)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  parent   IssueCategory?  @relation("IssueCategoryTree", fields: [parentId], references: [id])
+  children IssueCategory[] @relation("IssueCategoryTree")
+  reportIssues ReportIssue[]
+
+  @@map("issue_categories")
+}
+
+model CountermeasureCategory {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  parentId  BigInt?  @map("parent_id") @db.UnsignedBigInt
+  name      String   @db.VarChar(100)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  parent   CountermeasureCategory?  @relation("CmCategoryTree", fields: [parentId], references: [id])
+  children CountermeasureCategory[] @relation("CmCategoryTree")
+  reportIssues ReportIssue[]
+
+  @@map("countermeasure_categories")
+}
+
+model ReportIssue {
+  id                       BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  reportId                 BigInt  @map("report_id") @db.UnsignedBigInt
+  issueCategoryId          BigInt  @map("issue_category_id") @db.UnsignedBigInt
+  issueComment             String? @map("issue_comment") @db.Text
+  countermeasureCategoryId BigInt? @map("countermeasure_category_id") @db.UnsignedBigInt
+  countermeasureComment    String? @map("countermeasure_comment") @db.Text
+  sortOrder                Int     @default(0) @map("sort_order")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  report                 WeeklyReport            @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  issueCategory          IssueCategory           @relation(fields: [issueCategoryId], references: [id])
+  countermeasureCategory CountermeasureCategory? @relation(fields: [countermeasureCategoryId], references: [id])
+
+  @@index([reportId])
+  @@index([issueCategoryId])
+  @@index([countermeasureCategoryId])
+  @@map("report_issues")
+}
+
+model ComplianceReport {
+  id         BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  reportId   BigInt               @unique @map("report_id") @db.UnsignedBigInt
+  level      ComplianceLevel      @default(none)
+  content    String?              @db.Text
+  visibility ComplianceVisibility @default(manager_and_executive)
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  report   WeeklyReport        @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  viewLogs ComplianceViewLog[]
+
+  @@map("compliance_reports")
+}
+
+model ComplianceViewLog {
+  id                 BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  complianceReportId BigInt   @map("compliance_report_id") @db.UnsignedBigInt
+  viewedBy           BigInt   @map("viewed_by") @db.UnsignedBigInt
+  viewedAt           DateTime @default(now()) @map("viewed_at")
+
+  complianceReport ComplianceReport @relation(fields: [complianceReportId], references: [id], onDelete: Cascade)
+  viewer           User             @relation(fields: [viewedBy], references: [id])
+
+  @@map("compliance_view_logs")
+}
+
+model Comment {
+  id              BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  reportId        BigInt   @map("report_id") @db.UnsignedBigInt
+  userId          BigInt   @map("user_id") @db.UnsignedBigInt
+  parentCommentId BigInt?  @map("parent_comment_id") @db.UnsignedBigInt
+  content         String   @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  report  WeeklyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id])
+  parent  Comment?     @relation("CommentThread", fields: [parentCommentId], references: [id])
+  replies Comment[]    @relation("CommentThread")
+
+  @@index([reportId])
+  @@map("comments")
+}
+
+model ReportConfirmation {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  reportId    BigInt   @map("report_id") @db.UnsignedBigInt
+  userId      BigInt   @map("user_id") @db.UnsignedBigInt
+  confirmedAt DateTime @default(now()) @map("confirmed_at")
+
+  report WeeklyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id])
+
+  @@unique([reportId, userId])
+  @@map("report_confirmations")
+}
+
+model SkipWeek {
+  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  weekStartDate DateTime @unique @map("week_start_date") @db.Date
+  reason        String   @db.VarChar(200)
+
+  @@map("skip_weeks")
+}
+
+model NotificationLog {
+  id      BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  userId  BigInt?            @map("user_id") @db.UnsignedBigInt
+  type    NotificationType
+  payload Json
+  status  NotificationStatus
+  sentAt  DateTime           @default(now()) @map("sent_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("notification_logs")
+}
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId     BigInt   @map("user_id") @db.UnsignedBigInt
+  action     String   @db.VarChar(50)
+  targetType String   @map("target_type") @db.VarChar(50)
+  targetId   BigInt?  @map("target_id") @db.UnsignedBigInt
+  detail     Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model AppSetting {
+  key   String @id @db.VarChar(100)
+  value String @db.Text
+
+  @@map("app_settings")
+}

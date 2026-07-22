@@ -1,0 +1,132 @@
+# 週報管理システム(クーリード株式会社)
+
+社内向け週報の提出・確認・統計を一元管理するWebアプリケーション。
+
+- **技術構成**: Next.js 16(App Router)+ Prisma + MySQL 8.4 / Node.js 24(Dockerなし)
+- **ドキュメント**: [docs/01_要件定義書.md](docs/01_要件定義書.md) / [docs/02_DB設計書.md](docs/02_DB設計書.md) / [docs/03_画面設計書.md](docs/03_画面設計書.md)
+- **アプリ本体**: `app/`
+
+## 1. 必要環境
+
+| ソフトウェア | バージョン | 備考 |
+|---|---|---|
+| Node.js | 24.x(LTS) | `winget install OpenJS.NodeJS.LTS` |
+| MySQL Server | 8.4 | `winget install Oracle.MySQL` |
+
+## 2. 起動手順(開発)
+
+```powershell
+# 1) MySQL起動(サービス未登録の場合)
+& "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqld.exe" --defaults-file="C:\ProgramData\MySQL\MySQL Server 8.4\my.ini"
+
+# 2) アプリ起動
+cd C:\Claude-Work\weekly-report-system\app
+npm run dev        # http://localhost:3000
+```
+
+`app/.env` に `DATABASE_URL`(MySQL接続情報)と `SESSION_SECRET` が設定済み。
+
+### デモアカウント(シードデータ)
+
+| ロール | メール | パスワード |
+|---|---|---|
+| 管理者 | admin@coolied.local | Coolied2026! |
+| 役員 | tanaka@coolied.local | Coolied2026! |
+| 所属長(営業1課) | yamada@coolied.local | Coolied2026! |
+| メンバー(営業1課) | sato@coolied.local | Coolied2026! |
+
+**パスワードは平文で管理されます**(ローカル運用の割り切り)。管理者は「ユーザー管理」画面で
+全ユーザーのパスワードを確認できます。DBファイルとバックアップへのアクセス制限は必ず維持してください。
+
+**本番運用前に必ず**: デモユーザーを無効化し、管理者パスワードを変更してください。
+シードを再投入する場合: `node prisma/seed.mjs`
+
+## 3. 本番運用手順
+
+### 3.1 MySQLをWindowsサービスとして登録(管理者権限のPowerShellで実行)
+
+```powershell
+& "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqld.exe" --install MySQL84 --defaults-file="C:\ProgramData\MySQL\MySQL Server 8.4\my.ini"
+Start-Service MySQL84
+Set-Service MySQL84 -StartupType Automatic
+```
+
+### 3.2 rootパスワード
+
+**設定済み(2026-07-22)。** パスワードは社内のパスワード管理台帳を参照してください。
+変更する場合:
+
+```powershell
+& "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -u root -p --host=127.0.0.1 -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '新しいパスワード';"
+```
+
+### 3.3 アプリのビルドと起動
+
+```powershell
+cd C:\Claude-Work\weekly-report-system\app
+npm run build
+npm run start      # ポート3000で起動
+```
+
+常駐化する場合はタスクスケジューラで「システム起動時」に `npm run start` を実行するか、
+[NSSM](https://nssm.cc/) 等でWindowsサービス化してください。
+
+### 3.4 HTTPS化(推奨)
+
+ハラスメント報告を扱うため、社内LANでもHTTPS化を推奨します。
+IISのリバースプロキシ(ARR)またはCaddy/nginxを前段に置き、社内CA証明書を設定してください。
+HTTPS化したら `app/.env` に `COOKIE_SECURE=1` を追加します。
+
+### 3.5 バックアップ(日次)
+
+`scripts/backup.ps1` をタスクスケジューラで毎日実行してください(例: 毎日 2:00)。
+保存先は既定で `C:\Backup\weekly-report`。**必ずNAS等の別筐体にもコピーしてください。**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Claude-Work\weekly-report-system\scripts\backup.ps1
+```
+
+## 4. Teams通知の設定(Power Automate Workflows)
+
+1. Teamsの通知先チャネルで「…」→「ワークフロー」を開く
+2. テンプレート「**Webhook 要求を受信したときにチャネルに投稿する**」を選択して作成
+3. 発行されたURLをコピー
+4. 週報システムに管理者でログイン →「システム設定」→ Webhook URLに貼り付けて保存
+5. 「テスト送信」でチャネルに通知が届くことを確認
+
+URLが未設定の間、通知は送信されません(システム自体は通常どおり動作します)。
+
+### 通知の種類
+
+| タイミング | 内容 |
+|---|---|
+| 金曜 リマインダー時刻(既定10:00) | 未提出者へ提出リマインダー |
+| 金曜 締切時刻超過(既定18:00) | 未提出者+所属長へアラート、低評価連続アラート |
+| コメント投稿時 | 週報の本人へ通知 |
+| 週報提出時 | 所属長へ通知 |
+| 提出状況画面の「リマインド送信」 | 手動リマインダー |
+
+## 5. 運用メモ
+
+- **ユーザー追加**: 管理者「ユーザー管理」から登録。パスワードは管理者が発行・確認できる(平文管理)
+- **退職処理**: 「無効化」を使用(過去週報は保持)
+- **異動**: 「チーム管理」の所属設定で異動日を指定。過去週報は当時のチームの統計に残る
+- **マスタ変更**: 削除不可・無効化のみ(過去統計の保全のため)
+- **提出不要週**: 「週・締切設定」でカレンダー登録(年末年始など)
+- **締切後の修正**: DBの `weekly_reports.status` を管理者が変更(現状UIなし・要望あれば追加)
+
+## 6. ディレクトリ構成
+
+```
+weekly-report-system/
+├─ README.md
+├─ docs/                  … 要件定義・DB設計・画面設計・モックアップ
+├─ scripts/backup.ps1     … 日次バックアップスクリプト
+└─ app/                   … Next.jsアプリ本体
+   ├─ prisma/schema.prisma … DBスキーマ(14テーブル)
+   ├─ prisma/seed.mjs      … 初期データ投入
+   └─ src/
+      ├─ lib/              … 認証・セッション・週計算・通知・統計
+      ├─ app/(app)/        … 画面(ホーム/週報/チーム/全社/管理)
+      └─ instrumentation.ts … cron起動(Teams自動通知)
+```

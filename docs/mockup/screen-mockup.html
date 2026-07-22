@@ -1,0 +1,520 @@
+<title>週報管理システム 画面モックアップ</title>
+<style>
+:root{
+  --bg:#F4F6F8; --surface:#FFFFFF; --surface2:#EDF0F3;
+  --ink:#22303A; --ink2:#5A6B76; --ink3:#8FA0AA;
+  --line:#DDE3E8; --accent:#2A6B60; --accent-soft:#E3EFEC; --accent-ink:#1E4F47;
+  --good:#2E7D46; --good-soft:#E5F2E9;
+  --ok:#2A6B60;  --ok-soft:#E3EFEC;
+  --warn:#B07A18; --warn-soft:#F7EEDC;
+  --bad:#B3403A; --bad-soft:#F8E7E5;
+  --shadow:0 1px 3px rgba(34,48,58,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#161C21; --surface:#1F262C; --surface2:#283138;
+    --ink:#E3E9ED; --ink2:#9FAFB9; --ink3:#6E7E88;
+    --line:#333E46; --accent:#4FA391; --accent-soft:#233934; --accent-ink:#7CC5B5;
+    --good:#5CB878; --good-soft:#22352A;
+    --ok:#4FA391;  --ok-soft:#233934;
+    --warn:#D9A23F; --warn-soft:#3A3022;
+    --bad:#DA6D65; --bad-soft:#3B2624;
+    --shadow:0 1px 3px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#161C21; --surface:#1F262C; --surface2:#283138;
+  --ink:#E3E9ED; --ink2:#9FAFB9; --ink3:#6E7E88;
+  --line:#333E46; --accent:#4FA391; --accent-soft:#233934; --accent-ink:#7CC5B5;
+  --good:#5CB878; --good-soft:#22352A;
+  --ok:#4FA391;  --ok-soft:#233934;
+  --warn:#D9A23F; --warn-soft:#3A3022;
+  --bad:#DA6D65; --bad-soft:#3B2624;
+  --shadow:0 1px 3px rgba(0,0,0,.35);
+}
+:root[data-theme="light"]{
+  --bg:#F4F6F8; --surface:#FFFFFF; --surface2:#EDF0F3;
+  --ink:#22303A; --ink2:#5A6B76; --ink3:#8FA0AA;
+  --line:#DDE3E8; --accent:#2A6B60; --accent-soft:#E3EFEC; --accent-ink:#1E4F47;
+  --good:#2E7D46; --good-soft:#E5F2E9;
+  --ok:#2A6B60;  --ok-soft:#E3EFEC;
+  --warn:#B07A18; --warn-soft:#F7EEDC;
+  --bad:#B3403A; --bad-soft:#F8E7E5;
+  --shadow:0 1px 3px rgba(34,48,58,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Yu Gothic UI","Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,system-ui,sans-serif;
+  font-size:14px;line-height:1.65}
+.num{font-variant-numeric:tabular-nums}
+
+/* ===== 画面切替バー(モックアップ用UI) ===== */
+.picker{position:sticky;top:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--line);
+  padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.picker .lbl{font-size:11px;letter-spacing:.08em;color:var(--ink3);margin-right:4px}
+.picker button{font:inherit;font-size:12.5px;padding:6px 12px;border:1px solid var(--line);
+  border-radius:99px;background:var(--surface);color:var(--ink2);cursor:pointer}
+.picker button:hover{border-color:var(--accent);color:var(--accent-ink)}
+.picker button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.picker button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ===== アプリシェル ===== */
+.shell{max-width:1080px;margin:20px auto 60px;border:1px solid var(--line);border-radius:10px;
+  overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.appbar{display:flex;align-items:center;gap:14px;padding:0 18px;height:52px;
+  background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14.5px}
+.brand .mark{width:22px;height:22px;border-radius:6px;background:var(--accent);color:#fff;
+  display:grid;place-items:center;font-size:12px;font-weight:700}
+.appbar .sp{flex:1}
+.bell{position:relative;color:var(--ink2);font-size:16px}
+.bell .dot{position:absolute;top:-3px;right:-6px;background:var(--bad);color:#fff;font-size:9.5px;
+  border-radius:99px;padding:0 4px;line-height:1.5}
+.who{font-size:12.5px;color:var(--ink2)}
+.who b{color:var(--ink)}
+.body{display:flex;min-height:620px}
+.nav{width:196px;flex:none;border-right:1px solid var(--line);background:var(--surface);padding:12px 10px}
+.nav .grp{font-size:10.5px;letter-spacing:.1em;color:var(--ink3);margin:14px 8px 4px}
+.nav a{display:block;padding:7px 10px;border-radius:7px;color:var(--ink2);text-decoration:none;font-size:13px}
+.nav a.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:700}
+.main{flex:1;min-width:0;padding:22px 24px;background:var(--bg)}
+.crumb{font-size:12px;color:var(--ink3);margin-bottom:6px}
+h1.pg{font-size:18px;margin:0 0 16px;font-weight:700}
+h1.pg small{font-weight:400;color:var(--ink2);font-size:13px;margin-left:10px}
+
+/* ===== 部品 ===== */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow)}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.row>.card{flex:1;min-width:260px}
+.card h2{font-size:13px;margin:0 0 10px;color:var(--ink2);font-weight:700;letter-spacing:.02em}
+.btn{display:inline-block;font:inherit;font-size:13px;padding:7px 16px;border-radius:7px;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.btn.sm{font-size:12px;padding:4px 10px}
+.pill{display:inline-block;font-size:11.5px;padding:2px 10px;border-radius:99px;font-weight:700}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.mut{background:var(--surface2);color:var(--ink2)}
+.mark4{font-weight:700}
+.m-ex{color:var(--good)} .m-gd{color:var(--ok)} .m-fa{color:var(--warn)} .m-po{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11.5px;color:var(--ink3);text-align:left;font-weight:700;letter-spacing:.04em;
+  padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.tscroll{overflow-x:auto}
+.alert{display:flex;gap:10px;align-items:flex-start;background:var(--warn-soft);border:1px solid var(--warn);
+  border-radius:9px;padding:10px 14px;font-size:13px;color:var(--ink)}
+.alert .ic{color:var(--warn);font-weight:700}
+input[type=text],textarea,select{font:inherit;font-size:13px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:7px;padding:7px 10px;width:100%}
+textarea{resize:vertical}
+.fld{margin-bottom:14px}
+.fld>label{display:block;font-size:12.5px;font-weight:700;margin-bottom:5px}
+.fld .req{color:var(--bad);font-size:11px;margin-left:6px}
+.radio-row{display:flex;gap:18px;flex-wrap:wrap;font-size:13.5px}
+.radio-row label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.issue-card{border:1px solid var(--line);border-radius:9px;padding:12px 14px;background:var(--surface2)}
+.issue-card .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12.5px;font-weight:700;color:var(--ink2)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.cmt{display:flex;gap:10px;margin-bottom:12px}
+.cmt .av{width:30px;height:30px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);
+  display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.cmt .bd{background:var(--surface2);border-radius:9px;padding:8px 12px;flex:1}
+.cmt .meta{font-size:11.5px;color:var(--ink3);margin-bottom:2px}
+.cmt.reply{margin-left:40px}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--ink2);flex-wrap:wrap}
+.legend i{font-style:normal;font-weight:700}
+.screen{display:none}
+.screen.on{display:block}
+.note{font-size:12px;color:var(--ink3)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi .k{font-size:11.5px;color:var(--ink3);letter-spacing:.04em}
+.kpi .v{font-size:22px;font-weight:700;margin-top:2px}
+.kpi .s{font-size:11.5px;margin-top:2px}
+.chart-wrap{width:100%;overflow-x:auto}
+svg text{font-family:inherit}
+@media (prefers-reduced-motion: no-preference){
+  .screen.on{animation:fade .18s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+}
+@media(max-width:760px){.nav{display:none}}
+</style>
+
+<div class="picker" role="tablist" aria-label="画面切替">
+  <span class="lbl">画面モックアップ</span>
+  <button class="on" data-s="sc10">SC10 ホーム</button>
+  <button data-s="sc11">SC11 週報入力</button>
+  <button data-s="sc12">SC12 週報詳細</button>
+  <button data-s="sc20">SC20 チーム週報一覧</button>
+  <button data-s="sc21">SC21 提出状況</button>
+  <button data-s="sc22">SC22 ダッシュボード</button>
+</div>
+
+<div class="shell">
+  <div class="appbar">
+    <span class="brand"><span class="mark">週</span>週報管理システム</span>
+    <span class="sp"></span>
+    <span class="bell">🔔<span class="dot num">2</span></span>
+    <span class="who" id="who"><b>佐藤 太郎</b>(営業1課)</span>
+  </div>
+  <div class="body">
+    <nav class="nav" id="nav">
+      <div class="grp">週報</div>
+      <a href="#" data-nav="sc10">ホーム</a>
+      <a href="#" data-nav="sc11">週報を書く</a>
+      <div class="grp" id="grp-mgr">チーム(所属長)</div>
+      <a href="#" data-nav="sc20">チーム週報</a>
+      <a href="#" data-nav="sc21">提出状況</a>
+      <a href="#" data-nav="sc22">ダッシュボード</a>
+    </nav>
+
+    <main class="main">
+
+      <!-- ============ SC10 ホーム ============ -->
+      <section class="screen on" id="sc10">
+        <h1 class="pg">ホーム<small>2026年7月20日(月)〜7月26日(日) の週</small></h1>
+        <div class="stack">
+          <div class="card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <div style="font-size:13px;color:var(--ink2)">今週の週報</div>
+              <div style="font-size:16px;font-weight:700;margin-top:2px">
+                <span class="pill bad">未提出</span>
+                <span class="note" style="margin-left:10px">締切: 7/24(金) 18:00</span>
+              </div>
+            </div>
+            <button class="btn pri">今週の週報を書く</button>
+          </div>
+
+          <div class="card">
+            <h2>未読コメント <span class="pill bad num">2</span></h2>
+            <table>
+              <tr><td>7/14週の週報に <b>山田所属長</b> からコメントが届いています</td>
+                  <td style="width:70px;text-align:right"><button class="btn sm">開く</button></td></tr>
+              <tr><td>7/7週の週報に <b>田中役員</b> からコメントが届いています</td>
+                  <td style="text-align:right"><button class="btn sm">開く</button></td></tr>
+            </table>
+          </div>
+
+          <div class="row">
+            <div class="card" style="flex:1.6">
+              <h2>自分の週報(時系列)</h2>
+              <div class="tscroll"><table>
+                <tr><th>対象週</th><th>評価</th><th>状態</th><th>コメント</th><th></th></tr>
+                <tr><td class="num">7/14週</td><td class="mark4 m-gd">○</td><td><span class="pill ok">提出済</span></td><td class="num">2件</td><td style="text-align:right"><button class="btn sm">詳細</button></td></tr>
+                <tr><td class="num">7/7週</td><td class="mark4 m-ex">◎</td><td><span class="pill ok">提出済</span></td><td class="num">1件</td><td style="text-align:right"><button class="btn sm">詳細</button></td></tr>
+                <tr><td class="num">6/30週</td><td class="mark4 m-fa">△</td><td><span class="pill ok">提出済</span></td><td class="num">3件</td><td style="text-align:right"><button class="btn sm">詳細</button></td></tr>
+                <tr><td class="num">6/23週</td><td class="mark4 m-gd">○</td><td><span class="pill ok">提出済</span></td><td class="num">0件</td><td style="text-align:right"><button class="btn sm">詳細</button></td></tr>
+              </table></div>
+            </div>
+            <div class="card">
+              <h2>評価推移(直近12週)</h2>
+              <div class="chart-wrap">
+              <svg viewBox="0 0 300 130" width="100%" role="img" aria-label="評価推移の折れ線グラフ">
+                <line x1="30" y1="15" x2="290" y2="15" stroke="var(--line)"/>
+                <line x1="30" y1="45" x2="290" y2="45" stroke="var(--line)"/>
+                <line x1="30" y1="75" x2="290" y2="75" stroke="var(--line)"/>
+                <line x1="30" y1="105" x2="290" y2="105" stroke="var(--line)"/>
+                <text x="24" y="19" font-size="10" fill="var(--ink3)" text-anchor="end">◎</text>
+                <text x="24" y="49" font-size="10" fill="var(--ink3)" text-anchor="end">○</text>
+                <text x="24" y="79" font-size="10" fill="var(--ink3)" text-anchor="end">△</text>
+                <text x="24" y="109" font-size="10" fill="var(--ink3)" text-anchor="end">✕</text>
+                <polyline points="40,45 62,45 84,15 106,45 128,75 150,45 172,45 194,15 216,75 238,45 260,15 282,45"
+                  fill="none" stroke="var(--accent)" stroke-width="2"/>
+                <circle cx="282" cy="45" r="4" fill="var(--accent)"/>
+              </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SC11 週報入力 ============ -->
+      <section class="screen" id="sc11">
+        <h1 class="pg">週報入力<small>対象週: 2026/7/20(月)〜7/26(日)</small></h1>
+        <div class="stack">
+          <div style="display:flex;justify-content:flex-end">
+            <button class="btn sm">先週の内容をコピー</button>
+          </div>
+          <div class="card">
+            <div class="fld">
+              <label>今週行ったこと<span class="req">必須</span></label>
+              <textarea rows="4">・A社向け提案書の初稿を作成、社内レビュー済み
+・新規リード架電 32件(接続 8件、アポ 2件)</textarea>
+            </div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <label style="font-size:12.5px;font-weight:700">課題と対策</label>
+              <button class="btn sm">+ 課題を追加</button>
+            </div>
+            <div class="issue-card">
+              <div class="hd"><span>課題 1</span><button class="btn sm">削除</button></div>
+              <div class="grid2">
+                <div>
+                  <label style="font-size:12px;color:var(--ink2)">課題分類</label>
+                  <div style="display:flex;gap:8px">
+                    <select><option>営業</option></select>
+                    <select><option>新規開拓</option></select>
+                  </div>
+                  <input type="text" style="margin-top:6px" value="新規リードの母数が不足している">
+                </div>
+                <div>
+                  <label style="font-size:12px;color:var(--ink2)">対策分類(未定の場合は空欄可)</label>
+                  <div style="display:flex;gap:8px">
+                    <select><option>体制・プロセス</option></select>
+                    <select><option>業務プロセス改善</option></select>
+                  </div>
+                  <input type="text" style="margin-top:6px" value="午前中の架電枠を1時間拡大する">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="fld" style="margin-bottom:0">
+              <label>自己評価<span class="req">必須</span></label>
+              <div class="radio-row">
+                <label><input type="radio" name="rate"><span class="mark4 m-ex">◎</span> 非常に良い</label>
+                <label><input type="radio" name="rate" checked><span class="mark4 m-gd">○</span> 良い</label>
+                <label><input type="radio" name="rate"><span class="mark4 m-fa">△</span> 課題あり</label>
+                <label><input type="radio" name="rate"><span class="mark4 m-po">✕</span> 問題あり</label>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="fld">
+              <label>ビジネスモラル・ハラスメント</label>
+              <div class="radio-row">
+                <label><input type="radio" name="cmp"> なし</label>
+                <label><input type="radio" name="cmp" checked> 気になる点あり</label>
+                <label><input type="radio" name="cmp"> 問題あり</label>
+              </div>
+            </div>
+            <div class="fld">
+              <label>内容</label>
+              <textarea rows="2" placeholder="気になった出来事を記載してください"></textarea>
+            </div>
+            <div class="fld" style="margin-bottom:0">
+              <label>公開範囲</label>
+              <div class="radio-row">
+                <label><input type="radio" name="vis" checked> 所属長・役員に公開</label>
+                <label><input type="radio" name="vis"> 役員のみに公開</label>
+              </div>
+              <div class="note" style="margin-top:4px">「役員のみ」を選ぶと、所属長にはこの欄自体が表示されません。</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="btn">下書き保存</button>
+            <button class="btn pri">提出する</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SC12 週報詳細 ============ -->
+      <section class="screen" id="sc12">
+        <div class="crumb">チーム週報 › 佐藤 太郎 › 7/14週</div>
+        <h1 class="pg">佐藤 太郎(営業1課)7/14週の週報</h1>
+        <div class="stack">
+          <div class="card" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+            <span>評価: <span class="mark4 m-gd" style="font-size:18px">○</span></span>
+            <span class="note num">提出: 7/18(金) 17:32</span>
+            <span class="pill ok">確認済(山田)</span>
+            <span style="flex:1"></span>
+            <button class="btn sm">確認済みにする</button>
+            <span class="note">‹ 前の週 | 次の週 ›</span>
+          </div>
+          <div class="card">
+            <h2>今週行ったこと</h2>
+            <p style="margin:0">・A社向け提案の最終見積を提出、来週回答予定<br>・新規リード架電 28件(接続 6件、アポ 1件)</p>
+          </div>
+          <div class="card">
+            <h2>課題と対策</h2>
+            <div class="tscroll"><table>
+              <tr><th>課題分類</th><th>課題詳細</th><th>対策分類</th><th>対策詳細</th></tr>
+              <tr>
+                <td><span class="pill mut">営業/新規開拓</span></td><td>新規リードの母数が不足</td>
+                <td><span class="pill mut">体制/プロセス改善</span></td><td>架電枠を1時間拡大</td>
+              </tr>
+            </table></div>
+          </div>
+          <div class="card">
+            <h2>ビジネスモラル・ハラスメント</h2>
+            <p style="margin:0"><span class="pill mut">なし</span></p>
+            <p class="note" style="margin:8px 0 0">※「役員のみ公開」の報告がある場合、役員以外にはこの欄自体が表示されません。閲覧は記録されます。</p>
+          </div>
+          <div class="card">
+            <h2>コメント</h2>
+            <div class="cmt">
+              <div class="av">山</div>
+              <div class="bd">
+                <div class="meta">山田 所属長 · 7/18 18:05</div>
+                新規リードの件、マーケ経由のリスト共有を依頼しておきます。来週すり合わせしましょう。
+              </div>
+            </div>
+            <div class="cmt reply">
+              <div class="av">佐</div>
+              <div class="bd">
+                <div class="meta">佐藤 太郎 · 7/18 18:20</div>
+                承知しました。よろしくお願いします。
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <input type="text" placeholder="コメントを書く…">
+              <button class="btn pri" style="white-space:nowrap">送信</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SC20 チーム週報一覧 ============ -->
+      <section class="screen" id="sc20">
+        <h1 class="pg">チーム週報一覧<small>所属長・役員</small></h1>
+        <div class="stack">
+          <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <label style="font-size:12.5px">チーム
+              <select style="width:auto;margin-left:6px"><option>営業1課</option><option>開発課</option></select>
+            </label>
+            <label style="font-size:12.5px">期間
+              <select style="width:auto;margin-left:6px"><option>直近8週</option><option>直近12週</option></select>
+            </label>
+            <span class="sp" style="flex:1"></span>
+            <span class="legend">
+              <span><i class="m-ex">◎</i> 非常に良い</span><span><i class="m-gd">○</i> 良い</span>
+              <span><i class="m-fa">△</i> 課題あり</span><span><i class="m-po">✕</i> 問題あり</span>
+            </span>
+          </div>
+          <div class="alert"><span class="ic">⚠</span>
+            <span><b>高橋 一郎</b> さんは低評価(△・✕)が3週連続しています。個別フォローを検討してください。</span>
+          </div>
+          <div class="card">
+            <div class="tscroll"><table>
+              <tr><th>メンバー</th><th class="num">7/14週</th><th class="num">7/7週</th><th class="num">6/30週</th><th class="num">6/23週</th><th class="num">6/16週</th><th class="num">6/9週</th></tr>
+              <tr><td><b>佐藤 太郎</b></td>
+                <td class="mark4 m-gd">○</td><td class="mark4 m-ex">◎</td><td class="mark4 m-fa">△</td><td class="mark4 m-gd">○</td><td class="mark4 m-gd">○</td><td class="mark4 m-ex">◎</td></tr>
+              <tr><td><b>鈴木 花子</b></td>
+                <td class="mark4 m-ex">◎</td><td class="mark4 m-ex">◎</td><td class="mark4 m-gd">○</td><td class="mark4 m-ex">◎</td><td class="mark4 m-gd">○</td><td class="mark4 m-gd">○</td></tr>
+              <tr><td><b>高橋 一郎</b> <span class="pill warn">⚠</span></td>
+                <td><span class="pill bad">未提出</span></td><td class="mark4 m-fa">△</td><td class="mark4 m-fa">△</td><td class="mark4 m-po">✕</td><td class="mark4 m-gd">○</td><td class="mark4 m-gd">○</td></tr>
+              <tr><td><b>伊藤 美咲</b></td>
+                <td class="mark4 m-gd">○</td><td class="mark4 m-gd">○</td><td class="mark4 m-ex">◎</td><td class="mark4 m-gd">○</td><td class="mark4 m-fa">△</td><td class="mark4 m-gd">○</td></tr>
+            </table></div>
+            <p class="note" style="margin:10px 0 0">セルをクリックすると該当週報の詳細(SC12)を表示します。未読の週報は太字で表示されます。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SC21 提出状況 ============ -->
+      <section class="screen" id="sc21">
+        <h1 class="pg">提出状況一覧<small>対象週: 7/20週</small></h1>
+        <div class="stack">
+          <div class="kpis">
+            <div class="kpi"><div class="k">全社提出率</div><div class="v num">84%</div><div class="s note num">42 / 50名</div></div>
+            <div class="kpi"><div class="k">未提出</div><div class="v num" style="color:var(--bad)">8名</div><div class="s note">締切まで残り 2日</div></div>
+            <div class="kpi"><div class="k">確認待ち</div><div class="v num" style="color:var(--warn)">12件</div><div class="s note">所属長の未確認週報</div></div>
+          </div>
+          <div class="card">
+            <div class="tscroll"><table>
+              <tr><th>チーム</th><th>所属長</th><th class="num">提出</th><th>未提出者</th><th></th></tr>
+              <tr><td><b>営業1課</b></td><td>山田</td><td class="num">8 / 9</td><td>高橋 一郎</td>
+                  <td style="text-align:right"><button class="btn sm">リマインド送信</button></td></tr>
+              <tr><td><b>営業2課</b></td><td>中村</td><td class="num">7 / 9</td><td>小林、加藤</td>
+                  <td style="text-align:right"><button class="btn sm">リマインド送信</button></td></tr>
+              <tr><td><b>開発課</b></td><td>渡辺</td><td class="num">10 / 10</td><td class="note">―</td><td></td></tr>
+              <tr><td><b>管理部</b></td><td>斎藤</td><td class="num">6 / 7</td><td>松本</td>
+                  <td style="text-align:right"><button class="btn sm">リマインド送信</button></td></tr>
+            </table></div>
+            <p class="note" style="margin:10px 0 0">「リマインド送信」はTeamsで本人にメンション通知します。金曜午前の自動リマインダーとは別に手動送信できます。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SC22 ダッシュボード ============ -->
+      <section class="screen" id="sc22">
+        <h1 class="pg">チームダッシュボード<small>営業1課 · 2026年4月〜7月</small></h1>
+        <div class="stack">
+          <div class="kpis">
+            <div class="kpi"><div class="k">平均評価</div><div class="v num">2.9<span style="font-size:13px;color:var(--ink3)"> / 4.0</span></div><div class="s"><span class="pill good">前期間 +0.2</span></div></div>
+            <div class="kpi"><div class="k">提出率</div><div class="v num">96%</div><div class="s"><span class="pill good">前期間 +4pt</span></div></div>
+            <div class="kpi"><div class="k">課題件数</div><div class="v num">47件</div><div class="s"><span class="pill warn">前期間 +12件</span></div></div>
+            <div class="kpi"><div class="k">モラル報告</div><div class="v num">1件</div><div class="s note">件数のみ表示</div></div>
+          </div>
+          <div class="row">
+            <div class="card">
+              <h2>評価分布</h2>
+              <div class="chart-wrap">
+              <svg viewBox="0 0 300 140" width="100%" role="img" aria-label="評価分布の棒グラフ">
+                <rect x="35"  y="60"  width="44" height="60" rx="3" fill="var(--good)"/>
+                <rect x="105" y="30"  width="44" height="90" rx="3" fill="var(--ok)"/>
+                <rect x="175" y="85"  width="44" height="35" rx="3" fill="var(--warn)"/>
+                <rect x="245" y="110" width="44" height="10" rx="3" fill="var(--bad)"/>
+                <text x="57"  y="134" font-size="12" fill="var(--ink2)" text-anchor="middle">◎ 24</text>
+                <text x="127" y="134" font-size="12" fill="var(--ink2)" text-anchor="middle">○ 36</text>
+                <text x="197" y="134" font-size="12" fill="var(--ink2)" text-anchor="middle">△ 14</text>
+                <text x="267" y="134" font-size="12" fill="var(--ink2)" text-anchor="middle">✕ 4</text>
+              </svg>
+              </div>
+            </div>
+            <div class="card">
+              <h2>評価推移(チーム平均)</h2>
+              <div class="chart-wrap">
+              <svg viewBox="0 0 300 140" width="100%" role="img" aria-label="チーム平均評価の推移">
+                <line x1="20" y1="20" x2="290" y2="20" stroke="var(--line)"/>
+                <line x1="20" y1="60" x2="290" y2="60" stroke="var(--line)"/>
+                <line x1="20" y1="100" x2="290" y2="100" stroke="var(--line)"/>
+                <polyline points="30,70 65,64 100,74 135,58 170,66 205,50 240,56 275,44"
+                  fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+                <circle cx="275" cy="44" r="4.5" fill="var(--accent)"/>
+                <text x="30" y="118" font-size="10.5" fill="var(--ink3)">4月</text>
+                <text x="135" y="118" font-size="10.5" fill="var(--ink3)">5月</text>
+                <text x="240" y="118" font-size="10.5" fill="var(--ink3)">7月</text>
+              </svg>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h2>課題カテゴリ 出現頻度(大分類)</h2>
+            <div class="chart-wrap">
+            <svg viewBox="0 0 560 150" width="100%" role="img" aria-label="課題カテゴリの横棒グラフ">
+              <text x="95" y="24"  font-size="12" fill="var(--ink2)" text-anchor="end">営業</text>
+              <rect x="105" y="12" width="300" height="18" rx="3" fill="var(--accent)"/>
+              <text x="412" y="26" font-size="12" fill="var(--ink2)" class="num">18件</text>
+              <text x="95" y="56"  font-size="12" fill="var(--ink2)" text-anchor="end">体制・プロセス</text>
+              <rect x="105" y="44" width="216" height="18" rx="3" fill="var(--accent)" opacity=".82"/>
+              <text x="328" y="58" font-size="12" fill="var(--ink2)" class="num">13件</text>
+              <text x="95" y="88"  font-size="12" fill="var(--ink2)" text-anchor="end">スキル・育成</text>
+              <rect x="105" y="76" width="150" height="18" rx="3" fill="var(--accent)" opacity=".64"/>
+              <text x="262" y="90" font-size="12" fill="var(--ink2)" class="num">9件</text>
+              <text x="95" y="120" font-size="12" fill="var(--ink2)" text-anchor="end">顧客対応</text>
+              <rect x="105" y="108" width="116" height="18" rx="3" fill="var(--accent)" opacity=".5"/>
+              <text x="228" y="122" font-size="12" fill="var(--ink2)" class="num">7件</text>
+            </svg>
+            </div>
+            <p class="note">バーをクリックすると小分類の内訳にドリルダウンします。役員向け全社ダッシュボード(SC30)は本画面と同構成+チーム別比較表・CSVエクスポートが付きます。</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+const btns=document.querySelectorAll('.picker button');
+const navs=document.querySelectorAll('#nav a');
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id));
+  btns.forEach(b=>b.classList.toggle('on',b.dataset.s===id));
+  navs.forEach(a=>a.classList.toggle('on',a.dataset.nav===id));
+  const who=document.getElementById('who');
+  who.innerHTML=(id==='sc20'||id==='sc21'||id==='sc22'||id==='sc12')
+    ?'<b>山田 健二</b>(営業1課 所属長)':'<b>佐藤 太郎</b>(営業1課)';
+}
+btns.forEach(b=>b.addEventListener('click',()=>show(b.dataset.s)));
+navs.forEach(a=>a.addEventListener('click',e=>{e.preventDefault();show(a.dataset.nav);}));
+show('sc10');
+</script>

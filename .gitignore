@@ -1,0 +1,19 @@
+# dependencies / build
+node_modules/
+.next/
+out/
+
+# 環境変数(DB接続情報・セッション秘密鍵を含むためコミットしない)
+.env
+.env.local
+.env.production
+
+# logs / misc
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# backup output
+/backup/
+*.sql.bak
