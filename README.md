@@ -73,16 +73,44 @@ Set-Service MySQL84 -StartupType Automatic
 & "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -u root -p --host=127.0.0.1 -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '新しいパスワード';"
 ```
 
-### 3.3 アプリのビルドと起動
+### 3.3 アプリのビルドと自動起動(設定済み)
+
+PC再起動時に MySQL とアプリが自動起動するよう設定済みです。
+
+| 対象 | 方式 | 名前 |
+|---|---|---|
+| MySQL | Windowsサービス(スタートアップ: 自動) | `MySQL84` |
+| アプリ | タスクスケジューラ(OS起動の30秒後、SYSTEMアカウント) | `WeeklyReportApp` |
+
+アプリは `scripts\start-app.ps1` 経由で起動します。このスクリプトは
+MySQLの起動を最大180秒待ってから Next.js を本番モードで起動し、
+ポート3000が使用中の場合は二重起動を避けて終了します。
+ログは `logs\app-YYYYMMDD.log` に出力されます。
+
+**コードを更新したら再ビルドが必要です**(タスクは本番ビルドを起動するため):
 
 ```powershell
 cd C:\Claude-Work\weekly-report-system\app
 npm run build
-npm run start      # ポート3000で起動
 ```
 
-常駐化する場合はタスクスケジューラで「システム起動時」に `npm run start` を実行するか、
-[NSSM](https://nssm.cc/) 等でWindowsサービス化してください。
+#### 自動起動の再設定・確認(管理者権限が必要)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Claude-Work\weekly-report-system\scripts\install-autostart.ps1
+powershell -ExecutionPolicy Bypass -File C:\Claude-Work\weekly-report-system\scripts\verify-autostart.ps1
+```
+
+#### 手動での起動・停止(管理者権限が必要)
+
+```powershell
+Start-ScheduledTask -TaskName WeeklyReportApp      # 起動
+Get-Process node | Stop-Process -Force             # 停止
+Get-ScheduledTask -TaskName WeeklyReportApp | Get-ScheduledTaskInfo   # 状態確認
+```
+
+> **PowerShellスクリプトの文字コード**: 日本語コメントを含むため、必ず **UTF-8(BOM付き)** で保存してください。
+> BOMなしだと Windows PowerShell 5.1 が文字化けし、構文エラーで起動しません。
 
 ### 3.4 HTTPS化(推奨)
 
