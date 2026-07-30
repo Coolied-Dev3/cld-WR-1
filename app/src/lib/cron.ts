@@ -85,8 +85,7 @@ async function runOverdueCheck() {
       body: `${m.user.name} さんの ${weekLabel(weekStart)} の週報が締切を過ぎても未提出です。`,
       mentionEmail: m.user.email,
     });
-    const leader = leaders.find((l) => l.teamId === m.teamId && l.userId !== m.userId);
-    if (leader) {
+    for (const leader of leaders.filter((l) => l.teamId === m.teamId && l.userId !== m.userId)) {
       await sendTeamsNotification("overdue", {
         userId: leader.userId,
         title: "メンバーの週報が未提出です",
@@ -128,8 +127,7 @@ async function runLowRatingAlert(weekKey: string) {
       else if (r) break;
     }
     if (streak >= alertWeeks) {
-      const leader = leaders.find((l) => l.teamId === m.teamId && l.userId !== m.userId);
-      if (leader) {
+      for (const leader of leaders.filter((l) => l.teamId === m.teamId && l.userId !== m.userId)) {
         await sendTeamsNotification("alert", {
           userId: leader.userId,
           title: "低評価が連続しているメンバーがいます",

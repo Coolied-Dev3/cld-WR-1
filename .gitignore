@@ -8,6 +8,10 @@ out/
 .env.local
 .env.production
 
+# 社員名簿(平文パスワードを含むためコミットしない)
+roster*.json
+**/prisma/roster*.json
+
 # logs / misc
 *.log
 npm-debug.log*

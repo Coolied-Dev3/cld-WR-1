@@ -102,13 +102,7 @@ export async function assignMembership(formData: FormData) {
       where: { userId, endDate: null },
       data: { endDate: prevEnd },
     });
-    // リーダー設定時、同チームの既存リーダーを解除
-    if (isLeader) {
-      await tx.teamMembership.updateMany({
-        where: { teamId, endDate: null, isLeader: true },
-        data: { isLeader: false },
-      });
-    }
+    // 1チームに複数の所属長を置けるため、既存の所属長は解除しない
     await tx.teamMembership.create({ data: { userId, teamId, isLeader, startDate } });
   });
   await logAudit(admin.id, "team.assign", "team_memberships", userId, {

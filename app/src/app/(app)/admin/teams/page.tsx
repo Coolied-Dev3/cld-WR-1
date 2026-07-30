@@ -62,6 +62,7 @@ export default async function AdminTeamsPage() {
             </form>
             <p className="note" style={{ marginBottom: 0 }}>
               現在の所属は異動日の前日で終了し、履歴として保持されます。過去の週報は当時のチームの統計に残ります。
+              1つの事業室に所属長を複数置くこともできます。
             </p>
           </div>
         </div>

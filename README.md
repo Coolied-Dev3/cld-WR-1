@@ -26,20 +26,33 @@ npm run dev        # http://localhost:3000
 
 `app/.env` に `DATABASE_URL`(MySQL接続情報)と `SESSION_SECRET` が設定済み。
 
-### デモアカウント(シードデータ)
+### 登録済みアカウント
 
-| ロール | メール | パスワード |
+2026年7月末時点の社員一覧(20名)+ システム管理者1名を登録済み。
+ログインIDは各自の会社メールアドレス、パスワードは社員一覧表(Userdata配下のExcel)を参照。
+
+| ロール | 人数 | 備考 |
 |---|---|---|
-| 管理者 | admin@coolied.local | Coolied2026! |
-| 役員 | tanaka@coolied.local | Coolied2026! |
-| 所属長(営業1課) | yamada@coolied.local | Coolied2026! |
-| メンバー(営業1課) | sato@coolied.local | Coolied2026! |
+| 役員(executive) | 2 | 全社の週報閲覧・コメント・全社ダッシュボード |
+| 所属長(manager) | 6 | 自事業室の週報閲覧・コメント。開発室・制作室は各2名 |
+| メンバー(member) | 12 | 自分の週報のみ |
+| 管理者(admin) | 1 | `admin@coolied.local`。ユーザー・事業室・マスタの保守用。週報の閲覧権限は持たない |
+
+事業室(5): 役員 / 制作室 / 開発室 / 教育運営室 / 技術部
 
 **パスワードは平文で管理されます**(ローカル運用の割り切り)。管理者は「ユーザー管理」画面で
 全ユーザーのパスワードを確認できます。DBファイルとバックアップへのアクセス制限は必ず維持してください。
 
-**本番運用前に必ず**: デモユーザーを無効化し、管理者パスワードを変更してください。
-シードを再投入する場合: `node prisma/seed.mjs`
+### データの投入方法
+
+```powershell
+node prisma/seed.mjs                                    # 課題/対策マスタ・システム設定(何度実行しても安全)
+node prisma/import-roster.mjs prisma/roster.json --reset # 社員データの一括登録(--reset で既存を全削除)
+```
+
+`roster.json` は社員一覧表(Excel)から生成する名簿ファイル。平文パスワードを含むため
+`.gitignore` で除外しており、リポジトリには含まれません。形式は `prisma/import-roster.mjs`
+冒頭のコメントを参照してください。
 
 ## 3. 本番運用手順
 

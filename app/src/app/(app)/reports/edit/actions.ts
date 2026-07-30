@@ -110,13 +110,13 @@ export async function saveReport(_prev: SaveState, formData: FormData): Promise<
 
   await logAudit(user.id, submitMode ? "report.submit" : "report.save_draft", "weekly_reports", report.id);
 
-  // 新規提出時のみ所属長へTeams通知
+  // 新規提出時のみ所属長へTeams通知(所属長が複数いる場合は全員に送る)
   if (submitMode && !wasSubmitted) {
-    const leader = await prisma.teamMembership.findFirst({
+    const leaders = await prisma.teamMembership.findMany({
       where: { teamId: membership.teamId, isLeader: true, endDate: null, userId: { not: user.id } },
       include: { user: true },
     });
-    if (leader) {
+    for (const leader of leaders) {
       await sendTeamsNotification("submitted", {
         userId: leader.userId,
         title: "週報が提出されました",

@@ -21,7 +21,7 @@ export default async function StatusPage() {
         select: { userId: true },
       });
       const submittedIds = new Set(submitted.map((r) => r.userId.toString()));
-      const leader = members.find((m) => m.isLeader);
+      const leaders = members.filter((m) => m.isLeader);
       const unsubmitted = members.filter((m) => !submittedIds.has(m.id.toString()));
       // 未確認週報数(自分が確認していない提出済週報)
       const unconfirmed = await prisma.weeklyReport.count({
@@ -33,7 +33,7 @@ export default async function StatusPage() {
           confirmations: { none: { userId: user.id } },
         },
       });
-      return { team, members, leader, unsubmitted, submittedCount: members.length - unsubmitted.length, unconfirmed };
+      return { team, members, leaders, unsubmitted, submittedCount: members.length - unsubmitted.length, unconfirmed };
     })
   );
 
@@ -92,7 +92,7 @@ export default async function StatusPage() {
                 {rows.map((r) => (
                   <tr key={r.team.id.toString()}>
                     <td><b>{r.team.name}</b></td>
-                    <td>{r.leader?.name ?? "―"}</td>
+                    <td>{r.leaders.map((l) => l.name).join("、") || "―"}</td>
                     <td className="num">
                       {r.submittedCount} / {r.members.length}
                     </td>
