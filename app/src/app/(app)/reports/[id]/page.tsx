@@ -124,16 +124,28 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
             <div className="tscroll">
               <table>
                 <thead>
-                  <tr><th>課題分類</th><th>課題詳細</th><th>対策分類</th><th>対策詳細</th></tr>
+                  <tr><th>課題</th><th>課題詳細</th><th>対策</th><th>対策詳細</th></tr>
                 </thead>
                 <tbody>
                   {report.issues.map((it) => (
                     <tr key={it.id.toString()}>
-                      <td><span className="pill mut">{catLabel(it.issueCategory)}</span></td>
+                      <td>
+                        <span className="pill mut">{catLabel(it.issueCategory)}</span>
+                        {it.issueCategory.description && (
+                          <div className="note" style={{ marginTop: 3 }}>{it.issueCategory.description}</div>
+                        )}
+                      </td>
                       <td>{it.issueComment ?? "―"}</td>
                       <td>
                         {it.countermeasureCategory ? (
-                          <span className="pill mut">{catLabel(it.countermeasureCategory)}</span>
+                          <>
+                            <span className="pill mut">{catLabel(it.countermeasureCategory)}</span>
+                            {it.countermeasureCategory.description && (
+                              <div className="note" style={{ marginTop: 3 }}>
+                                {it.countermeasureCategory.description}
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <span className="note">未定</span>
                         )}

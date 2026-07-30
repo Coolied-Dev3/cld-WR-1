@@ -119,14 +119,33 @@ export async function createMasterCategory(formData: FormData) {
   const admin = await requireUser(["admin"]);
   const kind = String(formData.get("kind")); // issue | cm
   const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
   const parentIdRaw = String(formData.get("parentId") ?? "");
   if (!name) return;
-  const data = { name, parentId: parentIdRaw ? BigInt(parentIdRaw) : null };
+  const data = { name, description, parentId: parentIdRaw ? BigInt(parentIdRaw) : null };
   const created =
     kind === "issue"
       ? await prisma.issueCategory.create({ data })
       : await prisma.countermeasureCategory.create({ data });
   await logAudit(admin.id, "master.create", kind === "issue" ? "issue_categories" : "countermeasure_categories", created.id, { name });
+  revalidatePath("/admin/masters");
+}
+
+/** 名称と説明を更新する */
+export async function updateMasterCategory(formData: FormData) {
+  const admin = await requireUser(["admin"]);
+  const kind = String(formData.get("kind"));
+  const id = BigInt(String(formData.get("id")));
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  if (!name) return;
+  const data = { name, description };
+  if (kind === "issue") {
+    await prisma.issueCategory.update({ where: { id }, data });
+  } else {
+    await prisma.countermeasureCategory.update({ where: { id }, data });
+  }
+  await logAudit(admin.id, "master.update", kind === "issue" ? "issue_categories" : "countermeasure_categories", id, { name });
   revalidatePath("/admin/masters");
 }
 

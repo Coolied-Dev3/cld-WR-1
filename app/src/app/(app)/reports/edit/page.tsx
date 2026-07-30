@@ -17,9 +17,10 @@ async function loadCategories(model: "issue" | "cm"): Promise<CategoryOption[]> 
     .map((p) => ({
       id: Number(p.id),
       name: p.name,
+      description: p.description,
       children: rows
         .filter((c) => c.parentId === p.id)
-        .map((c) => ({ id: Number(c.id), name: c.name })),
+        .map((c) => ({ id: Number(c.id), name: c.name, description: c.description })),
     }));
 }
 
