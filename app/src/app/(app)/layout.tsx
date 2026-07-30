@@ -14,7 +14,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const teamNames = user.memberships.map((m) => m.team.name).join("・");
 
-  const items: NavItem[] = [{ group: "週報" }, { href: "/", label: "ホーム" }, { href: "/reports/edit", label: "週報を書く" }];
+  // 役員は週報を提出しない(確認する側)ため「週報を書く」は表示しない
+  const items: NavItem[] = [{ group: "週報" }, { href: "/", label: "ホーム" }];
+  if (user.role === "member" || user.role === "manager") {
+    items.push({ href: "/reports/edit", label: "週報を書く" });
+  }
   if (user.role === "manager" || user.role === "executive") {
     items.push(
       { group: user.role === "executive" ? "全社" : "チーム" },

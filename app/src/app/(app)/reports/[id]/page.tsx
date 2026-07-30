@@ -192,23 +192,47 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
                   </div>
                 </div>
               ))}
-              <details className="cmt reply" style={{ marginBottom: 14 }}>
-                <summary className="note" style={{ cursor: "pointer" }}>返信する</summary>
-                <form action={addComment} style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              {/* 本人には返信欄を常時表示。それ以外は折りたたみ */}
+              {isOwner ? (
+                <form
+                  action={addComment}
+                  className="cmt reply"
+                  style={{ display: "flex", gap: 8, marginBottom: 16 }}
+                >
                   <input type="hidden" name="reportId" value={report.id.toString()} />
                   <input type="hidden" name="parentCommentId" value={c.id.toString()} />
-                  <input type="text" name="content" placeholder="返信を書く…" required />
-                  <button className="btn sm pri" style={{ whiteSpace: "nowrap" }}>送信</button>
+                  <input type="text" name="content" placeholder={`${c.user.name} さんに返信を書く…`} required />
+                  <button className="btn sm pri" style={{ whiteSpace: "nowrap" }}>返信する</button>
                 </form>
-              </details>
+              ) : (
+                <details className="cmt reply" style={{ marginBottom: 14 }}>
+                  <summary className="note" style={{ cursor: "pointer" }}>返信する</summary>
+                  <form action={addComment} style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                    <input type="hidden" name="reportId" value={report.id.toString()} />
+                    <input type="hidden" name="parentCommentId" value={c.id.toString()} />
+                    <input type="text" name="content" placeholder="返信を書く…" required />
+                    <button className="btn sm pri" style={{ whiteSpace: "nowrap" }}>送信</button>
+                  </form>
+                </details>
+              )}
             </div>
           ))}
           {isReviewer && (
-            <form action={addComment} style={{ display: "flex", gap: 8 }}>
-              <input type="hidden" name="reportId" value={report.id.toString()} />
-              <input type="text" name="content" placeholder="コメントを書く…" required />
-              <button className="btn pri" style={{ whiteSpace: "nowrap" }}>送信</button>
-            </form>
+            <>
+              <form action={addComment} style={{ display: "flex", gap: 8 }}>
+                <input type="hidden" name="reportId" value={report.id.toString()} />
+                <input type="text" name="content" placeholder="コメントを書く…" required />
+                <button className="btn pri" style={{ whiteSpace: "nowrap" }}>送信</button>
+              </form>
+              <p className="note" style={{ margin: "8px 0 0" }}>
+                コメントを送信すると {report.user.name} さんにTeamsで通知されます。
+              </p>
+            </>
+          )}
+          {isOwner && topComments.length === 0 && (
+            <p className="note" style={{ marginBottom: 0 }}>
+              所属長・役員からコメントが届くと、ここに表示され返信できるようになります。
+            </p>
           )}
         </div>
       </div>

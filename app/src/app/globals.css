@@ -100,6 +100,17 @@ textarea{resize:vertical}
 svg text{font-family:inherit}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--ink2);flex-wrap:wrap}
 .legend i{font-style:normal;font-weight:700}
+/* 一覧セル内のリンク(「◎ 提出済」など) */
+.cell-link{display:inline-flex;align-items:center;gap:5px;text-decoration:none;color:var(--accent-ink);
+  border:1px solid var(--line);border-radius:6px;padding:2px 9px;background:var(--surface);font-size:12.5px}
+.cell-link:hover{border-color:var(--accent);background:var(--accent-soft)}
+.cell-link:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* 週の切替(‹ 前週 / 翌週 ›) */
+.weeknav{display:flex;align-items:center;gap:10px}
+.weeknav .cur{font-weight:700;font-size:14px;min-width:190px;text-align:center}
+.weeknav .disabled{opacity:.4;pointer-events:none}
+
 .filterbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .filterbar label{font-size:12.5px;display:flex;align-items:center;gap:6px}
 .filterbar select{width:auto}

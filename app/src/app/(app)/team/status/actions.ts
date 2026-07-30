@@ -3,29 +3,32 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser, logAudit } from "@/lib/auth";
-import { getTeamMembers } from "@/lib/team-data";
-import { currentWeekStart, weekLabel } from "@/lib/week";
+import { getViewableMembers } from "@/lib/team-data";
+import { fromDateKey, weekLabel } from "@/lib/week";
 import { sendTeamsNotification } from "@/lib/notify";
 
-export async function sendManualReminder(formData: FormData) {
+/** 未提出者へリマインダーを送る。userId 指定時は1名、未指定なら閲覧範囲の未提出者全員 */
+export async function sendReminder(formData: FormData) {
   const user = await requireUser(["manager", "executive"]);
-  const teamId = BigInt(String(formData.get("teamId")));
+  const weekStart = fromDateKey(String(formData.get("week")));
+  const targetId = String(formData.get("userId") ?? "");
 
-  // 所属長は自チームのみ
-  if (user.role === "manager" && !user.memberships.some((m) => m.isLeader && m.teamId === teamId)) {
-    return;
-  }
+  const skip = await prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } });
+  if (skip) return;
 
-  const weekStart = currentWeekStart();
-  const members = await getTeamMembers(teamId);
+  // 閲覧できる範囲(所属長=自チーム / 役員=全社)に限定する
+  const members = await getViewableMembers(user);
   const submitted = await prisma.weeklyReport.findMany({
-    where: { teamId, weekStartDate: weekStart, status: { not: "draft" } },
+    where: { weekStartDate: weekStart, status: { not: "draft" } },
     select: { userId: true },
   });
   const submittedIds = new Set(submitted.map((r) => r.userId.toString()));
-  const unsubmitted = members.filter((m) => !submittedIds.has(m.id.toString()));
 
-  for (const m of unsubmitted) {
+  const targets = members.filter(
+    (m) => !submittedIds.has(m.id.toString()) && (!targetId || m.id.toString() === targetId)
+  );
+
+  for (const m of targets) {
     await sendTeamsNotification("reminder", {
       userId: m.id,
       title: "週報提出のお願い",
@@ -33,8 +36,9 @@ export async function sendManualReminder(formData: FormData) {
       mentionEmail: m.email,
     });
   }
-  await logAudit(user.id, "notify.manual_reminder", "teams", teamId, {
-    count: unsubmitted.length,
+  await logAudit(user.id, "notify.manual_reminder", "users", targetId ? BigInt(targetId) : undefined, {
+    week: String(formData.get("week")),
+    count: targets.length,
   });
   revalidatePath("/team/status");
 }

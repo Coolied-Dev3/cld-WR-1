@@ -9,6 +9,8 @@ import { ratingMark, ratingClass, ratingScore, statusLabel } from "@/lib/labels"
 export default async function HomePage() {
   const user = await requireUser();
   if (user.role === "admin") redirect("/admin/users");
+  // 役員は週報を提出しないため、確認する側の画面(提出状況)を入口にする
+  if (user.role === "executive") redirect("/team/status");
 
   const weekStart = currentWeekStart();
   const [myThisWeek, skip, deadlineTime, myReports, recentComments] = await Promise.all([

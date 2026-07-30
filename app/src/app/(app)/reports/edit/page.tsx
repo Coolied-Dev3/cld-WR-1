@@ -26,8 +26,8 @@ async function loadCategories(model: "issue" | "cm"): Promise<CategoryOption[]> 
 export default async function ReportEditPage(props: {
   searchParams: Promise<{ copy?: string }>;
 }) {
-  const user = await requireUser();
-  if (user.role === "admin") redirect("/admin/users");
+  // 週報を提出するのはメンバーと所属長のみ
+  const user = await requireUser(["member", "manager"]);
   const { copy } = await props.searchParams;
 
   const weekStart = currentWeekStart();

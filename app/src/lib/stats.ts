@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { reportingUserWhere } from "./team-data";
 import { lastNWeekStarts, toDateKey } from "./week";
 import { ratingScore } from "./labels";
 import type { SelfRating } from "@prisma/client";
@@ -27,6 +28,7 @@ export async function computeStats(teamIds: bigint[], numWeeks: number): Promise
         ...teamFilter,
         weekStartDate: { in: weeks },
         status: { not: "draft" },
+        user: reportingUserWhere, // 役員・管理者は集計対象外
       },
       include: {
         issues: { include: { issueCategory: { include: { parent: true } }, countermeasureCategory: { include: { parent: true } } } },
@@ -38,7 +40,7 @@ export async function computeStats(teamIds: bigint[], numWeeks: number): Promise
       where: {
         ...(teamIds.length > 0 ? { teamId: { in: teamIds } } : {}),
         endDate: null,
-        user: { isActive: true },
+        user: reportingUserWhere,
       },
     }),
   ]);

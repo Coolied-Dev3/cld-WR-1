@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { prisma } from "./prisma";
+import { reportingUserWhere } from "./team-data";
 import { currentWeekStart, weekLabel, lastNWeekStarts, toDateKey } from "./week";
 import { sendTeamsNotification, getAppSetting } from "./notify";
 
@@ -31,7 +32,7 @@ async function getUnsubmitted() {
   const skip = await prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } });
   if (skip) return null;
   const memberships = await prisma.teamMembership.findMany({
-    where: { endDate: null, user: { isActive: true, role: { not: "admin" } } },
+    where: { endDate: null, user: reportingUserWhere },
     include: { user: true },
   });
   const submitted = await prisma.weeklyReport.findMany({
@@ -106,7 +107,7 @@ async function runLowRatingAlert(weekKey: string) {
   const alertWeeks = Number(await getAppSetting("alert_consecutive_low_weeks", "3"));
   const weeks = lastNWeekStarts(alertWeeks + 2); // 新しい順
   const memberships = await prisma.teamMembership.findMany({
-    where: { endDate: null, user: { isActive: true, role: { not: "admin" } } },
+    where: { endDate: null, user: reportingUserWhere },
     include: { user: true },
   });
   const leaders = await prisma.teamMembership.findMany({

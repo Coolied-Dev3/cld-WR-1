@@ -108,17 +108,16 @@ export default async function TeamReportsPage(props: {
                     {weeks.map((w) => {
                       const r = cell(m.id, w);
                       return (
-                        <td key={toDateKey(w)}>
+                        <td key={toDateKey(w)} style={{ whiteSpace: "nowrap" }}>
                           {r ? (
-                            <Link
-                              href={`/reports/${r.id}`}
-                              className={`mark4 ${ratingClass[r.selfRating]}`}
-                              style={{ textDecoration: "none" }}
-                            >
-                              {ratingMark[r.selfRating]}
+                            <Link href={`/reports/${r.id}`} className="cell-link">
+                              <span className={`mark4 ${ratingClass[r.selfRating]}`}>
+                                {ratingMark[r.selfRating]}
+                              </span>
+                              提出済
                             </Link>
                           ) : (
-                            <span className="note">―</span>
+                            <span className="note">未提出</span>
                           )}
                         </td>
                       );
@@ -129,7 +128,8 @@ export default async function TeamReportsPage(props: {
             </table>
           </div>
           <p className="note" style={{ margin: "10px 0 0" }}>
-            記号をクリックすると週報の詳細を表示します。「―」は未提出です。
+            「提出済」をクリックすると週報の詳細が開き、コメントを登録できます。
+            コメントを登録すると本人にTeamsで通知されます。
           </p>
         </div>
       </div>

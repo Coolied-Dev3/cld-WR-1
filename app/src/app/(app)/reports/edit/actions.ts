@@ -10,7 +10,7 @@ import type { ComplianceLevel, ComplianceVisibility, SelfRating } from "@prisma/
 export type SaveState = { error?: string };
 
 export async function saveReport(_prev: SaveState, formData: FormData): Promise<SaveState> {
-  const user = await requireUser(["member", "manager", "executive"]);
+  const user = await requireUser(["member", "manager"]);
   const weekStart = currentWeekStart();
 
   const skip = await prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } });
