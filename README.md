@@ -46,13 +46,25 @@ npm run dev        # http://localhost:3000
 ### データの投入方法
 
 ```powershell
-node prisma/seed.mjs                                    # 課題/対策マスタ・システム設定(何度実行しても安全)
-node prisma/import-roster.mjs prisma/roster.json --reset # 社員データの一括登録(--reset で既存を全削除)
+node prisma/seed.mjs                                       # システム設定(何度実行しても安全)
+node prisma/import-roster.mjs  prisma/roster.json  --reset # 社員データ(--reset で既存を全削除)
+node prisma/import-masters.mjs prisma/masters.json --reset # 課題・対策マスタ(--reset で既存を全削除)
+node prisma/seed-testdata.mjs --reset                      # 動作確認用テストデータ(本番運用時は実行しない)
 ```
 
-`roster.json` は社員一覧表(Excel)から生成する名簿ファイル。平文パスワードを含むため
-`.gitignore` で除外しており、リポジトリには含まれません。形式は `prisma/import-roster.mjs`
-冒頭のコメントを参照してください。
+| ファイル | 内容 | Git |
+|---|---|:-:|
+| `prisma/roster.json` | 社員名簿。**平文パスワードを含む**ため除外 | ✕ |
+| `prisma/masters.json` | 課題・対策マスタ(個人情報を含まない) | ○ |
+
+`masters.json` は `MasterData` フォルダの「課題・対策マスタ_YYYYMMDD.xlsx」から生成しています。
+マスタを差し替える場合は、Excelの「課題マスタ」「対策マスタ」シートから同じ形式のJSONを作り、
+`import-masters.mjs --reset` で投入してください。
+
+> **注意**: `import-masters.mjs --reset` は既存マスタを削除するため、
+> マスタを参照している週報の課題・対策(`report_issues`)も併せて削除されます。
+> 運用開始後にマスタを入れ替える場合は、`--reset` を付けずに追加登録するか、
+> 事前にバックアップを取得してください。
 
 ## 3. 本番運用手順
 
