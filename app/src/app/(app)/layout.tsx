@@ -14,9 +14,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const teamNames = user.memberships.map((m) => m.team.name).join("・");
 
-  // 役員は週報を提出しない(確認する側)ため「週報を書く」は表示しない
+  // 役員も週報を提出する(使用するマスタは役員用に切り替わる)
   const items: NavItem[] = [{ group: "週報" }, { href: "/", label: "ホーム" }];
-  if (user.role === "member" || user.role === "manager") {
+  if (user.role !== "admin") {
     items.push(
       { href: "/reports/edit", label: "週報を書く" },
       { href: "/reports/history", label: "過去の週報" }

@@ -3,14 +3,16 @@
  *
  *   node prisma/import-masters.mjs <masters.json> [--reset]
  *
- *   --reset を付けると既存の課題・対策マスタを全削除してから登録する。
+ *   --reset を付けると、そのファイルの適用範囲(scope)のマスタだけを全削除してから登録する。
+ *   例) masters-executive.json に --reset を付けても、一般(general)のマスタは消えない。
  *   マスタを参照している週報の課題・対策(report_issues)も併せて削除される点に注意。
  *
  * masters.json の形式:
  *   {
+ *     "scope": "general" | "executive",     // 省略時は general
  *     "issues": [
  *       { "name": "大分類名", "description": "...",
- *         "children": [{ "code": "KA01", "name": "課題名", "description": "..." }] }
+ *         "children": [{ "name": "課題名", "description": "..." }] }
  *     ],
  *     "countermeasures": [ 同上 ]
  *   }
@@ -30,9 +32,14 @@ if (!jsonPath) {
 }
 
 const data = JSON.parse(readFileSync(jsonPath, "utf8"));
+const scope = data.scope ?? "general";
+const scopeLabel = scope === "executive" ? "役員用" : "一般(メンバー・所属長)用";
 
 function validate() {
   const errors = [];
+  if (!["general", "executive"].includes(scope)) {
+    errors.push(`scope が不正です: ${scope}`);
+  }
   for (const [key, label] of [["issues", "課題"], ["countermeasures", "対策"]]) {
     const tree = data[key];
     if (!Array.isArray(tree) || tree.length === 0) {
@@ -61,37 +68,41 @@ function validate() {
 }
 
 async function reset() {
-  // マスタは report_issues から参照されているため先に消す
-  const issueRefs = await prisma.reportIssue.count();
-  if (issueRefs > 0) {
-    console.log(`週報の課題・対策 ${issueRefs}件を削除します(マスタ参照のため)`);
-    await prisma.reportIssue.deleteMany();
+  // このscopeのマスタを参照している週報の課題・対策を先に消す
+  const refs = await prisma.reportIssue.count({
+    where: { issueCategory: { scope } },
+  });
+  if (refs > 0) {
+    console.log(`週報の課題・対策 ${refs}件を削除します(マスタ参照のため)`);
+    await prisma.reportIssue.deleteMany({ where: { issueCategory: { scope } } });
   }
   // 子 → 親の順に削除(自己参照FKのため)
-  await prisma.issueCategory.deleteMany({ where: { parentId: { not: null } } });
-  await prisma.issueCategory.deleteMany();
-  await prisma.countermeasureCategory.deleteMany({ where: { parentId: { not: null } } });
-  await prisma.countermeasureCategory.deleteMany();
-  console.log("既存マスタを削除しました");
+  await prisma.issueCategory.deleteMany({ where: { scope, parentId: { not: null } } });
+  await prisma.issueCategory.deleteMany({ where: { scope } });
+  await prisma.countermeasureCategory.deleteMany({ where: { scope, parentId: { not: null } } });
+  await prisma.countermeasureCategory.deleteMany({ where: { scope } });
+  console.log(`既存の${scopeLabel}マスタを削除しました`);
 }
 
-async function importTree(model, tree, label) {
+async function importTree(isIssue, tree, label) {
   let parents = 0;
   let children = 0;
   for (const [pi, p] of tree.entries()) {
-    const parent = await model.create({
-      data: { name: p.name, description: p.description ?? null, sortOrder: pi },
-    });
+    const parentData = { name: p.name, description: p.description ?? null, scope, sortOrder: pi };
+    const parent = isIssue
+      ? await prisma.issueCategory.create({ data: parentData })
+      : await prisma.countermeasureCategory.create({ data: parentData });
     parents++;
     for (const [ci, c] of p.children.entries()) {
-      await model.create({
-        data: {
-          name: c.name,
-          description: c.description ?? null,
-          parentId: parent.id,
-          sortOrder: ci,
-        },
-      });
+      const childData = {
+        name: c.name,
+        description: c.description ?? null,
+        scope,
+        parentId: parent.id,
+        sortOrder: ci,
+      };
+      if (isIssue) await prisma.issueCategory.create({ data: childData });
+      else await prisma.countermeasureCategory.create({ data: childData });
       children++;
     }
   }
@@ -100,23 +111,29 @@ async function importTree(model, tree, label) {
 
 async function main() {
   validate();
+  console.log(`適用範囲: ${scopeLabel}`);
 
   if (RESET) {
     const before =
-      (await prisma.issueCategory.count()) + (await prisma.countermeasureCategory.count());
-    console.log(`既存マスタ ${before}件`);
+      (await prisma.issueCategory.count({ where: { scope } })) +
+      (await prisma.countermeasureCategory.count({ where: { scope } }));
+    console.log(`既存の${scopeLabel}マスタ ${before}件`);
     await reset();
   }
 
-  await importTree(prisma.issueCategory, data.issues, "課題");
-  await importTree(prisma.countermeasureCategory, data.countermeasures, "対策");
+  await importTree(true, data.issues, "課題");
+  await importTree(false, data.countermeasures, "対策");
 
   // 確認
-  const iP = await prisma.issueCategory.count({ where: { parentId: null } });
-  const iC = await prisma.issueCategory.count({ where: { parentId: { not: null } } });
-  const cP = await prisma.countermeasureCategory.count({ where: { parentId: null } });
-  const cC = await prisma.countermeasureCategory.count({ where: { parentId: { not: null } } });
-  console.log(`\n登録結果: 課題 ${iP}大分類/${iC}項目 · 対策 ${cP}大分類/${cC}項目`);
+  console.log("\n登録結果:");
+  for (const s of ["general", "executive"]) {
+    const iP = await prisma.issueCategory.count({ where: { scope: s, parentId: null } });
+    const iC = await prisma.issueCategory.count({ where: { scope: s, parentId: { not: null } } });
+    const cP = await prisma.countermeasureCategory.count({ where: { scope: s, parentId: null } });
+    const cC = await prisma.countermeasureCategory.count({ where: { scope: s, parentId: { not: null } } });
+    const label = s === "executive" ? "役員用" : "一般用";
+    console.log(`  ${label}: 課題 ${iP}大分類/${iC}項目 · 対策 ${cP}大分類/${cC}項目`);
+  }
 }
 
 main()

@@ -9,8 +9,6 @@ import { ratingMark, ratingClass, ratingScore, statusLabel } from "@/lib/labels"
 export default async function HomePage() {
   const user = await requireUser();
   if (user.role === "admin") redirect("/admin/users");
-  // 役員は週報を提出しないため、確認する側の画面(提出状況)を入口にする
-  if (user.role === "executive") redirect("/team/status");
 
   // 締切が翌週にずれている場合、締切日までは前週が「提出すべき週」になる
   const settings = await getDeadlineSettings();

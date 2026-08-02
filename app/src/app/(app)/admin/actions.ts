@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, logAudit } from "@/lib/auth";
 import { fromDateKey, weekStartOf } from "@/lib/week";
 import { sendTeamsNotification } from "@/lib/notify";
-import type { Role } from "@prisma/client";
+import type { Role, MasterScope } from "@prisma/client";
 
 // ---- ユーザー管理 ----
 
@@ -121,13 +121,14 @@ export async function createMasterCategory(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const parentIdRaw = String(formData.get("parentId") ?? "");
+  const scope: MasterScope = String(formData.get("scope")) === "executive" ? "executive" : "general";
   if (!name) return;
-  const data = { name, description, parentId: parentIdRaw ? BigInt(parentIdRaw) : null };
+  const data = { name, description, scope, parentId: parentIdRaw ? BigInt(parentIdRaw) : null };
   const created =
     kind === "issue"
       ? await prisma.issueCategory.create({ data })
       : await prisma.countermeasureCategory.create({ data });
-  await logAudit(admin.id, "master.create", kind === "issue" ? "issue_categories" : "countermeasure_categories", created.id, { name });
+  await logAudit(admin.id, "master.create", kind === "issue" ? "issue_categories" : "countermeasure_categories", created.id, { name, scope });
   revalidatePath("/admin/masters");
 }
 
@@ -165,8 +166,8 @@ export async function moveMasterCategory(formData: FormData) {
     : await prisma.countermeasureCategory.findUnique({ where: { id } });
   if (!target) return;
 
-  // 同じ階層の兄弟(大分類どうし、または同じ大分類に属する項目どうし)を表示順に並べる
-  const where = { parentId: target.parentId };
+  // 同じ階層かつ同じ適用範囲の兄弟を表示順に並べる
+  const where = { parentId: target.parentId, scope: target.scope };
   const orderBy = [{ sortOrder: "asc" as const }, { id: "asc" as const }];
   const siblings = isIssue
     ? await prisma.issueCategory.findMany({ where, orderBy })

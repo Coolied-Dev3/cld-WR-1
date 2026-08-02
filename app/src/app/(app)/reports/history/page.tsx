@@ -10,7 +10,7 @@ import {
 export default async function ReportHistoryPage(props: {
   searchParams: Promise<{ month?: string }>;
 }) {
-  const user = await requireUser(["member", "manager"]);
+  const user = await requireUser(["member", "manager", "executive"]);
   const { month } = await props.searchParams;
 
   const { months, selected } = await resolveMonths(user.id, month, currentMonthKey());

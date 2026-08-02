@@ -4,10 +4,16 @@ import type { Role } from "@prisma/client";
 
 /**
  * 週報の提出対象ロール。
- * 役員(executive)は週報を提出せず確認する側、管理者(admin)は保守用のため対象外。
+ * 役員も週報を提出する(使用するマスタは役員用に切り替わる)。
+ * 管理者(admin)は保守用のため対象外。
  * 一覧・提出状況・統計・リマインダー通知はすべてこの範囲で扱う。
  */
-export const REPORTING_ROLES: Role[] = ["member", "manager"];
+export const REPORTING_ROLES: Role[] = ["member", "manager", "executive"];
+
+/** そのロールが使う課題・対策マスタの適用範囲 */
+export function masterScopeFor(role: Role): "general" | "executive" {
+  return role === "executive" ? "executive" : "general";
+}
 
 /** 提出対象者に絞り込むための where 条件(User向け) */
 export const reportingUserWhere = {

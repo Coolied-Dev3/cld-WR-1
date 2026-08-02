@@ -4,14 +4,20 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { weekRangeLabel, addDays } from "@/lib/week";
 import { getDeadlineSettings, resolveTargetWeek, deadlineAtOf, deadlineDisplay } from "@/lib/deadline";
+import { masterScopeFor } from "@/lib/team-data";
 import { ReportForm } from "./report-form";
 import type { CategoryOption, IssueRow } from "./issues-editor";
 
-async function loadCategories(model: "issue" | "cm"): Promise<CategoryOption[]> {
+async function loadCategories(
+  model: "issue" | "cm",
+  scope: "general" | "executive"
+): Promise<CategoryOption[]> {
+  const where = { isActive: true, scope };
+  const orderBy = [{ sortOrder: "asc" as const }, { id: "asc" as const }];
   const rows =
     model === "issue"
-      ? await prisma.issueCategory.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] })
-      : await prisma.countermeasureCategory.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] });
+      ? await prisma.issueCategory.findMany({ where, orderBy })
+      : await prisma.countermeasureCategory.findMany({ where, orderBy });
   return rows
     .filter((r) => r.parentId === null)
     .map((p) => ({
@@ -27,8 +33,9 @@ async function loadCategories(model: "issue" | "cm"): Promise<CategoryOption[]> 
 export default async function ReportEditPage(props: {
   searchParams: Promise<{ copy?: string }>;
 }) {
-  // 週報を提出するのはメンバーと所属長のみ
-  const user = await requireUser(["member", "manager"]);
+  // 役員も週報を提出する。使用する課題・対策マスタはロールで切り替える
+  const user = await requireUser(["member", "manager", "executive"]);
+  const scope = masterScopeFor(user.role);
   const { copy } = await props.searchParams;
 
   // 締切が翌週にずれている場合、締切日までは前週が対象になる
@@ -41,8 +48,8 @@ export default async function ReportEditPage(props: {
       where: { userId_weekStartDate: { userId: user.id, weekStartDate: weekStart } },
       include: { issues: { orderBy: { sortOrder: "asc" }, include: { issueCategory: true, countermeasureCategory: true } }, compliance: true },
     }),
-    loadCategories("issue"),
-    loadCategories("cm"),
+    loadCategories("issue", scope),
+    loadCategories("cm", scope),
   ]);
 
   if (skip) {

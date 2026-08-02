@@ -40,11 +40,14 @@ function label(d) {
 }
 
 // テスト対象(メールで指定。ロールはDBの値を使う)
+// 役員は役員用マスタ(経営課題)から選択する
 const TARGETS = [
   { email: "k.hosaka@coolied.co.jp", kind: "member" },
   { email: "k.hama@coolied.co.jp", kind: "member" },
   { email: "k.yamada@coolied.co.jp", kind: "manager" },
   { email: "a.takusagawa@coolied.co.jp", kind: "manager" },
+  { email: "y.onozaki@coolied.co.jp", kind: "executive" },
+  { email: "k.ichikawa@coolied.co.jp", kind: "executive" },
 ];
 
 // 週ごとの内容(新しい週が配列の先頭)
@@ -73,6 +76,19 @@ const WEEKLY = {
     { rating: "fair", work: "・リリース準備\n・検証環境の整備", issue: "制作ルール・仕様の未整備／不統一", cm: "ルール・標準品質の明確化", ic: "リリース手順が個人の手順書頼りになっている", cc: "手順を標準化しリハーサルを行う" },
     { rating: "excellent", work: "・保守案件の棚卸し\n・自動化スクリプト作成", issue: "業務の効率化・自動化", cm: "マクロ・スクリプトによる自動化", ic: "定型作業に毎週工数を取られている", cc: "スクリプト化して工数を削減する" },
   ],
+  // ---- 役員(役員用マスタから選択) ----
+  "y.onozaki@coolied.co.jp": [
+    { rating: "good", work: "・下期の事業計画レビュー\n・主要顧客との経営層面談", issue: "事業の方向性・優先順位", cm: "経営戦略・中期計画の見直し", ic: "受託と自社サービスへの配分方針が定まっていない", cc: "重点領域を定義し直し、投資配分を決める" },
+    { rating: "fair", work: "・月次決算のレビュー\n・資金繰り表の更新", issue: "利益率の低下", cm: "ユニットエコノミクスの改善", ic: "値引き案件が増え粗利率が想定を下回った", cc: "見積基準を見直し、値引き決裁の基準を設ける" },
+    { rating: "good", work: "・幹部候補との面談\n・組織体制案の検討", issue: "幹部・後継者の育成", cm: "幹部・次世代リーダーの育成", ic: "経営判断を担える人材が育っていない", cc: "権限を委譲し、事業責任を持たせる機会を作る" },
+    { rating: "excellent", work: "・新規サービスの企画レビュー\n・パートナー候補との面談", issue: "新規事業の立ち上がり遅延", cm: "小さく試して検証する(PoC)", ic: "投資判断の材料が不足している", cc: "小規模に試作して市場の反応を確認する" },
+  ],
+  "k.ichikawa@coolied.co.jp": [
+    { rating: "good", work: "・営業パイプラインのレビュー\n・大口顧客の契約更新交渉", issue: "特定顧客への依存", cm: "パートナー・代理店の開拓", ic: "上位3社で売上の過半を占めている", cc: "代理店経由の販路を開拓し依存度を下げる" },
+    { rating: "good", work: "・採用計画の見直し\n・求人媒体の選定", issue: "採用の難航", cm: "採用計画の見直し・チャネル拡大", ic: "必要な職種の応募が計画に届いていない", cc: "要件を見直し、採用チャネルを追加する" },
+    { rating: "fair", work: "・情報セキュリティ体制の点検\n・規程類の確認", issue: "情報セキュリティ・個人情報保護", cm: "セキュリティ対策・体制強化", ic: "顧客データの取り扱いルールが部門で揃っていない", cc: "全社共通のルールを定め、研修を実施する" },
+    { rating: "good", work: "・金融機関との面談\n・与信枠の相談", issue: "資金調達の必要性・条件", cm: "借入・融資枠の確保(デット)", ic: "投資余力を確保する手段を検討する必要がある", cc: "金融機関と交渉し、借入枠を確保する" },
+  ],
 };
 
 async function reset() {
@@ -87,10 +103,10 @@ async function reset() {
   console.log("トランザクションデータを削除しました(ユーザー・事業室・マスタ・設定は保持)");
 }
 
-/** 名称から課題/対策マスタのIDを引く(見つからなければ中断) */
-async function findCategory(model, name, kind) {
-  const c = await model.findFirst({ where: { name, parentId: { not: null } } });
-  if (!c) throw new Error(`${kind}マスタに「${name}」が見つかりません`);
+/** 名称から課題/対策マスタのIDを引く(適用範囲を指定。見つからなければ中断) */
+async function findCategory(model, name, kind, scope) {
+  const c = await model.findFirst({ where: { name, scope, parentId: { not: null } } });
+  if (!c) throw new Error(`${scope === "executive" ? "役員用" : "一般"}の${kind}マスタに「${name}」が見つかりません`);
   return c;
 }
 
@@ -113,10 +129,11 @@ async function main() {
     const membership = user.memberships[0];
     if (!membership) throw new Error(`${user.name} は事業室に所属していません`);
 
+    const scope = user.role === "executive" ? "executive" : "general";
     for (const [i, weekStart] of weeks.entries()) {
       const src = WEEKLY[t.email][i];
-      const issueCat = await findCategory(prisma.issueCategory, src.issue, "課題");
-      const cmCat = await findCategory(prisma.countermeasureCategory, src.cm, "対策");
+      const issueCat = await findCategory(prisma.issueCategory, src.issue, "課題", scope);
+      const cmCat = await findCategory(prisma.countermeasureCategory, src.cm, "対策", scope);
       // 金曜17時台に提出したことにする
       const submittedAt = new Date(addDays(weekStart, 4).getTime() + (17 - 9) * 3600 * 1000 + i * 7 * 60000);
 
@@ -185,13 +202,20 @@ async function main() {
     where: { isLeader: true, endDate: null },
     include: { user: true },
   });
-  const exec = await prisma.user.findFirst({ where: { role: "executive", isActive: true } });
+  const execs = await prisma.user.findMany({
+    where: { role: "executive", isActive: true },
+    orderBy: { id: "asc" },
+  });
+  const exec = execs[0];
 
   for (const c of created.filter((x) => x.weekStart.getTime() === weeks[0].getTime())) {
+    // メンバーには所属長が、所属長には役員が、役員には別の役員がコメントする
     const commenter =
       c.kind === "member"
         ? leaders.find((l) => l.teamId === c.report.teamId && l.userId !== c.user.id)?.user
-        : exec;
+        : c.kind === "manager"
+          ? exec
+          : execs.find((e) => e.id !== c.user.id);
     if (!commenter) continue;
 
     const parent = await prisma.comment.create({

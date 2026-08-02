@@ -7,11 +7,14 @@ import {
   moveMasterCategory,
 } from "../actions";
 
+type Scope = "general" | "executive";
+
 type Cat = {
   id: bigint;
   parentId: bigint | null;
   name: string;
   description: string | null;
+  scope: Scope;
   isActive: boolean;
 };
 
@@ -93,12 +96,14 @@ function MasterPanel({
   title,
   childLabel,
   kind,
+  scope,
   categories,
   usedIds,
 }: {
   title: string;
   childLabel: string;
   kind: "issue" | "cm";
+  scope: Scope;
   categories: Cat[];
   usedIds: Set<string>;
 }) {
@@ -141,6 +146,7 @@ function MasterPanel({
         style={{ borderTop: "1px solid var(--line)", paddingTop: 12, gap: 8 }}
       >
         <input type="hidden" name="kind" value={kind} />
+        <input type="hidden" name="scope" value={scope} />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <select name="parentId" style={{ width: "auto" }} defaultValue="">
             <option value="">大分類として追加</option>
@@ -168,11 +174,22 @@ function MasterPanel({
   );
 }
 
-export default async function AdminMastersPage() {
+const SCOPES: { value: Scope; label: string; note: string }[] = [
+  { value: "general", label: "一般(メンバー・所属長)", note: "メンバーと所属長が週報入力時に選択するマスタ" },
+  { value: "executive", label: "役員", note: "役員が週報入力時に選択する経営課題のマスタ" },
+];
+
+export default async function AdminMastersPage(props: {
+  searchParams: Promise<{ scope?: string }>;
+}) {
   await requireUser(["admin"]);
+  const { scope: scopeParam } = await props.searchParams;
+  const scope: Scope = scopeParam === "executive" ? "executive" : "general";
+  const current = SCOPES.find((s) => s.value === scope)!;
+
   const [issues, cms, usedIssues, usedCms] = await Promise.all([
-    prisma.issueCategory.findMany({ orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
-    prisma.countermeasureCategory.findMany({ orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+    prisma.issueCategory.findMany({ where: { scope }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+    prisma.countermeasureCategory.findMany({ where: { scope }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
     prisma.reportIssue.findMany({ select: { issueCategoryId: true }, distinct: ["issueCategoryId"] }),
     prisma.reportIssue.findMany({
       select: { countermeasureCategoryId: true },
@@ -187,11 +204,29 @@ export default async function AdminMastersPage() {
         マスタ管理
         <small>▲▼で表示順を変更できます。説明は週報入力時に選択の目安として表示されます</small>
       </h1>
+
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="filterbar">
+          <span style={{ fontSize: 12.5, fontWeight: 700 }}>適用範囲</span>
+          {SCOPES.map((s) => (
+            <a
+              key={s.value}
+              href={`/admin/masters?scope=${s.value}`}
+              className={`btn sm${s.value === scope ? " pri" : ""}`}
+            >
+              {s.label}
+            </a>
+          ))}
+          <span className="note">{current.note}</span>
+        </div>
+      </div>
+
       <div className="hrow">
         <MasterPanel
           title="課題マスタ"
           childLabel="課題"
           kind="issue"
+          scope={scope}
           categories={issues}
           usedIds={new Set(usedIssues.map((u) => u.issueCategoryId.toString()))}
         />
@@ -199,6 +234,7 @@ export default async function AdminMastersPage() {
           title="対策マスタ"
           childLabel="対策"
           kind="cm"
+          scope={scope}
           categories={cms}
           usedIds={new Set(usedCms.map((u) => u.countermeasureCategoryId!.toString()))}
         />

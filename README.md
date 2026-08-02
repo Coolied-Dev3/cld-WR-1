@@ -46,16 +46,22 @@ npm run dev        # http://localhost:3000
 ### データの投入方法
 
 ```powershell
-node prisma/seed.mjs                                       # システム設定(何度実行しても安全)
-node prisma/import-roster.mjs  prisma/roster.json  --reset # 社員データ(--reset で既存を全削除)
-node prisma/import-masters.mjs prisma/masters.json --reset # 課題・対策マスタ(--reset で既存を全削除)
-node prisma/seed-testdata.mjs --reset                      # 動作確認用テストデータ(本番運用時は実行しない)
+node prisma/seed.mjs                                                 # システム設定(何度実行しても安全)
+node prisma/import-roster.mjs  prisma/roster.json            --reset # 社員データ(--reset で既存を全削除)
+node prisma/import-masters.mjs prisma/masters.json           --reset # 課題・対策マスタ(一般)
+node prisma/import-masters.mjs prisma/masters-executive.json --reset # 課題・対策マスタ(役員)
+node prisma/seed-testdata.mjs --reset                                # 動作確認用テストデータ(本番運用時は実行しない)
 ```
 
 | ファイル | 内容 | Git |
 |---|---|:-:|
 | `prisma/roster.json` | 社員名簿。**平文パスワードを含む**ため除外 | ✕ |
-| `prisma/masters.json` | 課題・対策マスタ(個人情報を含まない) | ○ |
+| `prisma/masters.json` | 課題・対策マスタ(一般: メンバー・所属長用) | ○ |
+| `prisma/masters-executive.json` | 課題・対策マスタ(役員用: 経営課題) | ○ |
+
+課題・対策マスタは**適用範囲(scope)**を持ち、週報入力時にロールで自動的に切り替わります。
+`import-masters.mjs --reset` はJSON内の `scope` に一致するマスタだけを削除するため、
+役員用を入れ替えても一般用は消えません。
 
 `masters.json` は `MasterData` フォルダの「課題・対策マスタ_YYYYMMDD.xlsx」から生成しています。
 マスタを差し替える場合は、Excelの「課題マスタ」「対策マスタ」シートから同じ形式のJSONを作り、

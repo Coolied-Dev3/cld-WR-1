@@ -5,13 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, logAudit } from "@/lib/auth";
 import { weekLabel } from "@/lib/week";
 import { getDeadlineSettings, resolveTargetWeek, deadlineAtOf, deadlineDisplay } from "@/lib/deadline";
+import { masterScopeFor } from "@/lib/team-data";
 import { sendTeamsNotification } from "@/lib/notify";
 import type { ComplianceLevel, ComplianceVisibility, SelfRating } from "@prisma/client";
 
 export type SaveState = { error?: string };
 
 export async function saveReport(_prev: SaveState, formData: FormData): Promise<SaveState> {
-  const user = await requireUser(["member", "manager"]);
+  const user = await requireUser(["member", "manager", "executive"]);
+  const scope = masterScopeFor(user.role);
   const settings = await getDeadlineSettings();
   const weekStart = resolveTargetWeek(settings);
 
@@ -63,6 +65,25 @@ export async function saveReport(_prev: SaveState, formData: FormData): Promise<
       countermeasureComment: String(formData.get(`issue_${i}_cmComment`) ?? "").trim() || null,
       sortOrder: i,
     });
+  }
+
+  // 画面外から他ロール向けのマスタを送られても登録しないよう、適用範囲を検証する
+  if (issues.length > 0) {
+    const [validIssues, validCms] = await Promise.all([
+      prisma.issueCategory.count({
+        where: { scope, id: { in: issues.map((i) => i.issueCategoryId) } },
+      }),
+      prisma.countermeasureCategory.count({
+        where: {
+          scope,
+          id: { in: issues.map((i) => i.countermeasureCategoryId).filter((v) => v !== null) },
+        },
+      }),
+    ]);
+    const cmCount = issues.filter((i) => i.countermeasureCategoryId !== null).length;
+    if (validIssues !== issues.length || validCms !== cmCount) {
+      return { error: "選択された課題・対策が正しくありません。画面を読み込み直してください。" };
+    }
   }
 
   const existing = await prisma.weeklyReport.findUnique({

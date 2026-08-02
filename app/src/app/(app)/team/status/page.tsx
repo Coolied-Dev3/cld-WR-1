@@ -61,7 +61,7 @@ export default async function StatusPage(props: {
     <>
       <h1 className="pg">
         提出状況一覧
-        <small>{user.role === "executive" ? "全社" : "自事業室"}・役員を除く{members.length}名</small>
+        <small>{user.role === "executive" ? "全社" : "自事業室"} {members.length}名</small>
       </h1>
       <div className="stack">
         <div className="card" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -178,7 +178,6 @@ export default async function StatusPage(props: {
             </table>
           </div>
           <p className="note" style={{ margin: "10px 0 0" }}>
-            役員は週報の提出対象外のため一覧に含みません。
             「リマインド」は対象者にTeamsで通知します(Webhook設定時のみ送信されます)。
           </p>
         </div>
