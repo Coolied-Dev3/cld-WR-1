@@ -50,6 +50,7 @@ node prisma/seed.mjs                                                 # システ
 node prisma/import-roster.mjs  prisma/roster.json            --reset # 社員データ(--reset で既存を全削除)
 node prisma/import-masters.mjs prisma/masters.json           --reset # 課題・対策マスタ(一般)
 node prisma/import-masters.mjs prisma/masters-executive.json --reset # 課題・対策マスタ(役員)
+node prisma/add-other-categories.mjs                                 # 各マスタに「その他」を追加(マスタ投入後に実行)
 node prisma/seed-testdata.mjs --reset                                # 動作確認用テストデータ(本番運用時は実行しない)
 ```
 
@@ -62,6 +63,11 @@ node prisma/seed-testdata.mjs --reset                                # 動作確
 課題・対策マスタは**適用範囲(scope)**を持ち、週報入力時にロールで自動的に切り替わります。
 `import-masters.mjs --reset` はJSON内の `scope` に一致するマスタだけを削除するため、
 役員用を入れ替えても一般用は消えません。
+
+`add-other-categories.mjs` は、どの分類を選んでも「その他」を選べるようにするための補助スクリプトです。
+既存の各大分類の末尾に内容「その他」を、さらに末尾に大分類「その他 > その他」を追加します。
+既にある場合は追加しないため、何度実行しても安全です。
+**マスタを入れ替えた後は都度実行してください**(JSONには含めず、投入後に付与する運用)。
 
 `masters.json` は `MasterData` フォルダの「課題・対策マスタ_YYYYMMDD.xlsx」から生成しています。
 マスタを差し替える場合は、Excelの「課題マスタ」「対策マスタ」シートから同じ形式のJSONを作り、
