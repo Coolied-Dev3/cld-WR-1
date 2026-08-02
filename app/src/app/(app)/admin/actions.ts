@@ -214,7 +214,7 @@ export async function updateSettings(formData: FormData) {
 export async function testWebhook() {
   const admin = await requireUser(["admin"]);
   await sendTeamsNotification("alert", {
-    title: "週報管理システム テスト通知",
+    title: "クーリード 週報管理システム テスト通知",
     body: `Webhook設定のテスト送信です(実行者: ${admin.name})。この通知が見えていれば設定は正常です。`,
   });
   revalidatePath("/admin/settings");

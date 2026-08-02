@@ -64,7 +64,7 @@ export default async function DashboardPage(props: {
               <option value="26">直近26週</option>
             </select>
           </label>
-          <button className="btn sm">表示</button>
+          <button className="btn pri sm">表示</button>
           <span style={{ flex: 1 }} />
           {isExec && (
             <a

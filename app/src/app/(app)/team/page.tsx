@@ -46,7 +46,9 @@ export default async function TeamReportsPage(props: {
 
   return (
     <>
-      <h1 className="pg">チーム週報一覧</h1>
+      <h1 className="pg">
+        チーム管理<small>事業室のメンバー×週の提出状況</small>
+      </h1>
       <div className="stack">
         <div className="card filterbar">
           <label>
@@ -65,7 +67,7 @@ export default async function TeamReportsPage(props: {
           </label>
           {teams.length > 1 && (
             <form id="team-filter" method="get">
-              <button className="btn sm">表示</button>
+              <button className="btn pri sm">表示</button>
             </form>
           )}
           <span style={{ flex: 1 }} />

@@ -26,7 +26,7 @@ export default async function PersonalReportsPage(props: {
   return (
     <>
       <h1 className="pg">
-        個人週報
+        個人管理
         <small>
           {target.name}({target.team.name}) · {monthLabel(selected)}
         </small>
@@ -46,7 +46,7 @@ export default async function PersonalReportsPage(props: {
                 ))}
               </select>
             </label>
-            <button className="btn sm">表示</button>
+            <button className="btn pri sm">表示</button>
           </form>
           <span style={{ width: 1, height: 24, background: "var(--line)" }} />
           <MonthPicker

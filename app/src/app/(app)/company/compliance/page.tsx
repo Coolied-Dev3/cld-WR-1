@@ -49,7 +49,7 @@ export default async function CompliancePage(props: {
               <option value="issue">問題あり</option>
             </select>
           </label>
-          <button className="btn sm">表示</button>
+          <button className="btn pri sm">表示</button>
         </form>
         <div className="card">
           <div className="tscroll">

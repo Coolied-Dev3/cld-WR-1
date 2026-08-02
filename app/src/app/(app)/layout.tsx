@@ -24,12 +24,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   if (user.role === "manager" || user.role === "executive") {
     items.push(
-      { group: user.role === "executive" ? "全社" : "チーム" },
-      { href: "/team", label: "チーム週報" },
-      { href: "/team/personal", label: "個人週報" },
+      { group: "管理" },
       { href: "/team/status", label: "提出状況" },
-      { href: "/team/dashboard", label: "ダッシュボード" },
-      { href: "/company/compliance", label: "モラル報告" }
+      { href: "/team/personal", label: "個人管理" },
+      { href: "/team", label: "チーム管理" },
+      { href: "/company/compliance", label: "モラル報告" },
+      { href: "/team/dashboard", label: "ダッシュボード" }
     );
   }
   if (user.role === "executive") {
@@ -51,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <>
       <header className="appbar">
         <Link href="/" className="brand">
-          <span className="mark">週</span>週報管理システム
+          <span className="mark">週</span>クーリード 週報管理システム
         </Link>
         <span className="sp" />
         <span className="who">

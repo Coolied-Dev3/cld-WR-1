@@ -11,6 +11,9 @@ export default function PasswordPage() {
         <div className="brand">
           <span className="mark">週</span>パスワード変更
         </div>
+        <p className="note" style={{ textAlign: "center", marginTop: -8 }}>
+          クーリード 週報管理システム
+        </p>
         <p className="note" style={{ marginTop: 0 }}>
           初回ログイン時はパスワードの変更が必要です。8文字以上で設定してください。
         </p>

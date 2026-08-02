@@ -1,12 +1,22 @@
 :root{
-  --bg:#F4F6F8; --surface:#FFFFFF; --surface2:#EDF0F3;
-  --ink:#22303A; --ink2:#5A6B76; --ink3:#8FA0AA;
-  --line:#DDE3E8; --accent:#2A6B60; --accent-soft:#E3EFEC; --accent-ink:#1E4F47;
+  --bg:#F4F7F8; --surface:#FFFFFF; --surface2:#EEF2F3;
+  --ink:#1F2E33; --ink2:#57696F; --ink3:#8CA0A6;
+  --line:#DCE4E6;
+
+  /* ブランドカラー: ティファニーブルー。
+     #0ABABA は明るいため白文字だとコントラストが足りない。
+     ロゴなど色そのものを見せる場所は --accent、
+     白文字を乗せるボタン等は同系の濃色 --accent-strong を使う。 */
+  --accent:#0ABABA;
+  --accent-strong:#067676;
+  --accent-soft:#E0F5F5;
+  --accent-ink:#05605F;
+
   --good:#2E7D46; --good-soft:#E5F2E9;
-  --ok:#2A6B60;  --ok-soft:#E3EFEC;
+  --ok:#067676;  --ok-soft:#E0F5F5;
   --warn:#B07A18; --warn-soft:#F7EEDC;
   --bad:#B3403A; --bad-soft:#F8E7E5;
-  --shadow:0 1px 3px rgba(34,48,58,.08);
+  --shadow:0 1px 3px rgba(31,46,51,.08);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -20,7 +30,8 @@ a{color:var(--accent-ink)}
 .appbar{display:flex;align-items:center;gap:14px;padding:0 18px;height:52px;
   background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
 .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14.5px;color:var(--ink);text-decoration:none}
-.brand .mark{width:22px;height:22px;border-radius:6px;background:var(--accent);color:#fff;
+/* ロゴはブランドカラーそのものを見せる。文字は濃色にして読めるようにする */
+.brand .mark{width:22px;height:22px;border-radius:6px;background:var(--accent);color:#04403F;
   display:grid;place-items:center;font-size:12px;font-weight:700}
 .appbar .sp{flex:1}
 .who{font-size:12.5px;color:var(--ink2)}
@@ -46,8 +57,8 @@ h1.pg small{font-weight:400;color:var(--ink2);font-size:13px;margin-left:10px}
 .btn{display:inline-block;font:inherit;font-size:13px;padding:7px 16px;border-radius:7px;cursor:pointer;
   border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none}
 .btn:hover{border-color:var(--ink3)}
-.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
-.btn.pri:hover{filter:brightness(1.08)}
+.btn.pri{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff;font-weight:700}
+.btn.pri:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
 .btn.danger{color:var(--bad);border-color:var(--bad)}
 .btn.sm{font-size:12px;padding:4px 10px}
 .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

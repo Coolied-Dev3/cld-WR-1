@@ -84,7 +84,7 @@ export function MonthPicker({
           ))}
         </select>
       </label>
-      <button className="btn sm">表示</button>
+      <button className="btn pri sm">表示</button>
     </form>
   );
 }

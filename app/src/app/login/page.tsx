@@ -9,7 +9,7 @@ export default function LoginPage() {
     <div className="login-wrap">
       <form className="login-card" action={formAction}>
         <div className="brand">
-          <span className="mark">週</span>週報管理システム
+          <span className="mark">週</span>クーリード 週報管理システム
         </div>
         {state.error && (
           <div className="alert err" style={{ marginBottom: 14 }}>
