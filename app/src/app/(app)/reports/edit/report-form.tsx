@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { saveReport, type SaveState } from "./actions";
 import { IssuesEditor, type CategoryOption, type IssueRow } from "./issues-editor";
 import { ComplianceFields } from "./compliance-fields";
+import { AutoTextarea } from "@/components/auto-textarea";
 
 export function ReportForm({
   issueCategories,
@@ -15,6 +16,7 @@ export function ReportForm({
   initial: {
     workSummary: string;
     selfRating: string;
+    freeComment: string;
     issues: IssueRow[];
     complianceLevel: string;
     complianceContent: string;
@@ -23,6 +25,7 @@ export function ReportForm({
   };
 }) {
   const [state, formAction, pending] = useActionState<SaveState, FormData>(saveReport, {});
+  const [freeComment, setFreeComment] = useState(initial.freeComment);
 
   return (
     <form action={formAction} className="stack">
@@ -53,7 +56,7 @@ export function ReportForm({
       </div>
 
       <div className="card">
-        <div className="fld" style={{ marginBottom: 0 }}>
+        <div className="fld">
           <label>
             自己評価<span className="req">必須</span>
           </label>
@@ -70,6 +73,17 @@ export function ReportForm({
               </label>
             ))}
           </div>
+        </div>
+        <div className="fld" style={{ marginBottom: 0 }}>
+          <label htmlFor="freeComment">コメント(任意)</label>
+          <AutoTextarea
+            id="freeComment"
+            name="freeComment"
+            rows={2}
+            placeholder="評価の理由や補足、来週に向けての所感などを自由に記載してください"
+            value={freeComment}
+            onChange={(e) => setFreeComment(e.target.value)}
+          />
         </div>
       </div>
 

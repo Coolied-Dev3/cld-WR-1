@@ -125,7 +125,7 @@ export function ReportTimeline({
   }
 
   return (
-    <div className="stack">
+    <div className="timeline">
       <p className="note" style={{ margin: 0 }}>
         {monthLabel(monthKey)}の週報 {reports.length}件(新しい週が上、古い週が下)
       </p>
@@ -153,29 +153,41 @@ export function ReportTimeline({
           {r.issues.length === 0 ? (
             <p className="note" style={{ margin: 0 }}>登録なし</p>
           ) : (
-            <div className="tscroll">
-              <table>
-                <thead>
-                  <tr><th>課題</th><th>課題詳細</th><th>対策</th><th>対策詳細</th></tr>
-                </thead>
-                <tbody>
-                  {r.issues.map((it) => (
-                    <tr key={it.id.toString()}>
-                      <td><span className="pill mut">{catLabel(it.issueCategory)}</span></td>
-                      <td>{it.issueComment ?? "―"}</td>
-                      <td>
-                        {it.countermeasureCategory ? (
-                          <span className="pill mut">{catLabel(it.countermeasureCategory)}</span>
-                        ) : (
-                          <span className="note">未定</span>
-                        )}
-                      </td>
-                      <td>{it.countermeasureComment ?? "―"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            /* 上段に「課題 / 対策」、下段に「課題詳細 / 対策詳細」の二段組で並べる */
+            r.issues.map((it, idx) => (
+              <div className="issue-pair" key={it.id.toString()}>
+                {r.issues.length > 1 && <div className="issue-pair-no">課題 {idx + 1}</div>}
+                <div className="issue-pair-grid">
+                  <div className="issue-pair-cell">
+                    <div className="k">課題</div>
+                    <span className="pill mut">{catLabel(it.issueCategory)}</span>
+                  </div>
+                  <div className="issue-pair-cell">
+                    <div className="k">対策</div>
+                    {it.countermeasureCategory ? (
+                      <span className="pill mut">{catLabel(it.countermeasureCategory)}</span>
+                    ) : (
+                      <span className="note">未定</span>
+                    )}
+                  </div>
+                  <div className="issue-pair-cell">
+                    <div className="k">課題詳細</div>
+                    <p>{it.issueComment || "―"}</p>
+                  </div>
+                  <div className="issue-pair-cell">
+                    <div className="k">対策詳細</div>
+                    <p>{it.countermeasureComment || "―"}</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+
+          {r.freeComment && (
+            <>
+              <h3 className="report-entry-h">コメント(自己評価)</h3>
+              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{r.freeComment}</p>
+            </>
           )}
 
           {r.compliance && canSeeCompliance(viewer, r.compliance.visibility) && (

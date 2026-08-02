@@ -30,6 +30,7 @@ export async function saveReport(_prev: SaveState, formData: FormData): Promise<
   const submitMode = formData.get("mode") === "submit";
   const workSummary = String(formData.get("workSummary") ?? "").trim();
   const selfRating = String(formData.get("selfRating") ?? "") as SelfRating;
+  const freeComment = String(formData.get("freeComment") ?? "").trim() || null;
   const complianceLevel = String(formData.get("complianceLevel") ?? "none") as ComplianceLevel;
   const complianceContent = String(formData.get("complianceContent") ?? "").trim();
   const complianceVisibility = (String(formData.get("complianceVisibility") ?? "") ||
@@ -101,7 +102,7 @@ export async function saveReport(_prev: SaveState, formData: FormData): Promise<
     const r = existing
       ? await tx.weeklyReport.update({
           where: { id: existing.id },
-          data: { workSummary, selfRating: selfRating || "good", status, submittedAt },
+          data: { workSummary, selfRating: selfRating || "good", freeComment, status, submittedAt },
         })
       : await tx.weeklyReport.create({
           data: {
@@ -110,6 +111,7 @@ export async function saveReport(_prev: SaveState, formData: FormData): Promise<
             weekStartDate: weekStart,
             workSummary,
             selfRating: selfRating || "good",
+            freeComment,
             status,
             submittedAt,
           },

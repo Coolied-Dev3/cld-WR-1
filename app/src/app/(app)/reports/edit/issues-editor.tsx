@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AutoTextarea } from "@/components/auto-textarea";
 
 export type CategoryChild = { id: number; name: string; description: string | null };
 export type CategoryOption = {
@@ -129,9 +130,9 @@ export function IssuesEditor({
                 onParentChange={(v) => update(i, { issueParentId: v })}
                 onChildChange={(v) => update(i, { issueCategoryId: v })}
               />
-              <input
-                type="text"
+              <AutoTextarea
                 name={`issue_${i}_comment`}
+                rows={3}
                 placeholder="課題の詳細(具体的な状況を記載)"
                 style={{ marginTop: 6 }}
                 value={row.issueComment}
@@ -150,9 +151,9 @@ export function IssuesEditor({
                 onParentChange={(v) => update(i, { cmParentId: v })}
                 onChildChange={(v) => update(i, { cmCategoryId: v })}
               />
-              <input
-                type="text"
+              <AutoTextarea
                 name={`issue_${i}_cmComment`}
+                rows={3}
                 placeholder="対策の詳細(具体的な内容を記載)"
                 style={{ marginTop: 6 }}
                 value={row.cmComment}

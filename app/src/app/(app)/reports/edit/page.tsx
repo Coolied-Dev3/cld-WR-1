@@ -99,6 +99,7 @@ export default async function ReportEditPage(props: {
   const initial = {
     workSummary: source?.workSummary ?? "",
     selfRating: existing?.selfRating ?? "",
+    freeComment: existing?.freeComment ?? "",
     issues: (source?.issues ?? []).map(
       (it): IssueRow => ({
         issueParentId: issueParentOf(it.issueCategoryId, issueCategories),

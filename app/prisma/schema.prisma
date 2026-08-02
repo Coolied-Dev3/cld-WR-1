@@ -119,6 +119,7 @@ model WeeklyReport {
   status        ReportStatus @default(draft)
   workSummary   String       @map("work_summary") @db.Text
   selfRating    SelfRating   @map("self_rating")
+  freeComment   String?      @map("free_comment") @db.Text // 自己評価に添えるコメント(任意)
   submittedAt   DateTime?    @map("submitted_at")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")

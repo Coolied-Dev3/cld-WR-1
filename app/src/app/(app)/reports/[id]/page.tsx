@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewReport } from "@/lib/auth";
 import { weekLabel, formatDateTime } from "@/lib/week";
-import { ratingMark, ratingClass, statusLabel, complianceLevelLabel } from "@/lib/labels";
+import { ratingMark, ratingClass, ratingLabel, statusLabel, complianceLevelLabel } from "@/lib/labels";
 import { addComment, confirmReport } from "./actions";
 
 export default async function ReportDetailPage(props: { params: Promise<{ id: string }> }) {
@@ -86,7 +86,7 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
           <span>
             評価:{" "}
             <span className={`mark4 ${ratingClass[report.selfRating]}`} style={{ fontSize: 18 }}>
-              {ratingMark[report.selfRating]}
+              {ratingMark[report.selfRating]} {ratingLabel[report.selfRating]}
             </span>
           </span>
           <span className="note num">
@@ -158,6 +158,13 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
             </div>
           )}
         </div>
+
+        {report.freeComment && (
+          <div className="card">
+            <h2>コメント(自己評価)</h2>
+            <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{report.freeComment}</p>
+          </div>
+        )}
 
         {canSeeCompliance && compliance && (
           <div className="card">
