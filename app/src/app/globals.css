@@ -100,6 +100,15 @@ textarea{resize:vertical}
 svg text{font-family:inherit}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--ink2);flex-wrap:wrap}
 .legend i{font-style:normal;font-weight:700}
+/* 月別の週報タイムライン */
+.report-entry{border-left:3px solid var(--accent)}
+.report-entry-hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+.report-entry-hd .wk{font-weight:700;font-size:14px}
+.report-entry-h{font-size:12px;color:var(--ink3);font-weight:700;letter-spacing:.04em;
+  margin:16px 0 6px}
+.report-entry-h:first-of-type{margin-top:0}
+
 /* マスタ管理の階層表示 */
 .master-parent{border-bottom:1px solid var(--line);padding-bottom:6px}
 .master-child{padding:6px 0 6px 16px;border-left:2px solid var(--line);margin-left:4px}

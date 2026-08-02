@@ -149,6 +149,37 @@ async function main() {
     }
   }
 
+  // ---- モラル・ハラスメント報告(公開範囲の動作確認用に2件) ----
+  // 1件は「所属長・役員に公開」、1件は「役員のみに公開」
+  const complianceSamples = [
+    {
+      email: "k.hosaka@coolied.co.jp",
+      weekIndex: 1,
+      level: "concern",
+      visibility: "manager_and_executive",
+      content: "打ち合わせでの発言が強い口調になる場面があり、若手が萎縮している様子が気になりました。",
+    },
+    {
+      email: "k.hama@coolied.co.jp",
+      weekIndex: 2,
+      level: "concern",
+      visibility: "executive_only",
+      content: "業務時間外の連絡が続いており、負担に感じている旨を相談されました(役員のみ公開)。",
+    },
+  ];
+  for (const s of complianceSamples) {
+    const u = await prisma.user.findUnique({ where: { email: s.email } });
+    if (!u) continue;
+    const report = await prisma.weeklyReport.findUnique({
+      where: { userId_weekStartDate: { userId: u.id, weekStartDate: weeks[s.weekIndex] } },
+    });
+    if (!report) continue;
+    await prisma.complianceReport.update({
+      where: { reportId: report.id },
+      data: { level: s.level, visibility: s.visibility, content: s.content },
+    });
+  }
+
   // ---- コメント: 直近週の週報に、所属長→メンバー / 役員→所属長 ----
   const leaders = await prisma.teamMembership.findMany({
     where: { isLeader: true, endDate: null },

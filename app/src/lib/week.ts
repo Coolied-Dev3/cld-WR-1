@@ -57,6 +57,39 @@ export function weekRangeLabel(d: Date): string {
   }/${end.getUTCDate()}(日)`;
 }
 
+// ===== 月の扱い(週は週開始日=月曜が属する月に集計する) =====
+
+/** "2026-07" 形式 */
+export function toMonthKey(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/** 現在(JST)の年月キー */
+export function currentMonthKey(): string {
+  return toMonthKey(jstToday());
+}
+
+/** "2026-07" を検証して返す。不正なら当月 */
+export function normalizeMonthKey(key?: string | null): string {
+  if (key && /^\d{4}-(0[1-9]|1[0-2])$/.test(key)) return key;
+  return currentMonthKey();
+}
+
+/** 月キーの範囲 [月初, 翌月初) を返す */
+export function monthRange(key: string): { start: Date; end: Date } {
+  const [y, m] = key.split("-").map(Number);
+  return {
+    start: new Date(Date.UTC(y, m - 1, 1)),
+    end: new Date(Date.UTC(m === 12 ? y + 1 : y, m === 12 ? 0 : m, 1)),
+  };
+}
+
+/** "2026年7月" 表示 */
+export function monthLabel(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  return `${y}年${m}月`;
+}
+
 /** 日時表示 "7/18 17:32"(JST) */
 export function formatDateTime(d: Date): string {
   const j = new Date(d.getTime() + JST_OFFSET_MS);

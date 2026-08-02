@@ -17,22 +17,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // 役員は週報を提出しない(確認する側)ため「週報を書く」は表示しない
   const items: NavItem[] = [{ group: "週報" }, { href: "/", label: "ホーム" }];
   if (user.role === "member" || user.role === "manager") {
-    items.push({ href: "/reports/edit", label: "週報を書く" });
+    items.push(
+      { href: "/reports/edit", label: "週報を書く" },
+      { href: "/reports/history", label: "過去の週報" }
+    );
   }
   if (user.role === "manager" || user.role === "executive") {
     items.push(
       { group: user.role === "executive" ? "全社" : "チーム" },
       { href: "/team", label: "チーム週報" },
+      { href: "/team/personal", label: "個人週報" },
       { href: "/team/status", label: "提出状況" },
-      { href: "/team/dashboard", label: "ダッシュボード" }
+      { href: "/team/dashboard", label: "ダッシュボード" },
+      { href: "/company/compliance", label: "モラル報告" }
     );
   }
   if (user.role === "executive") {
-    items.push(
-      { href: "/company/compliance", label: "モラル報告" },
-      { group: "監査" },
-      { href: "/company/audit", label: "監査ログ" }
-    );
+    items.push({ group: "監査" }, { href: "/company/audit", label: "監査ログ" });
   }
   if (user.role === "admin") {
     items.push(
