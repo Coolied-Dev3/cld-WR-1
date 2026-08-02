@@ -1,36 +1,85 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { getAppSetting } from "@/lib/notify";
-import { toDateKey, weekRangeLabel } from "@/lib/week";
+import { toDateKey, weekRangeLabel, currentWeekStart } from "@/lib/week";
+import {
+  getDeadlineSettings,
+  DEADLINE_DAY_OPTIONS,
+  deadlineDisplay,
+  resolveTargetWeek,
+} from "@/lib/deadline";
 import { addSkipWeek, deleteSkipWeek, updateSettings } from "../actions";
 
 export default async function AdminWeeksPage() {
   await requireUser(["admin"]);
-  const [skipWeeks, deadlineTime, reminderTime] = await Promise.all([
+  const [skipWeeks, settings] = await Promise.all([
     prisma.skipWeek.findMany({ orderBy: { weekStartDate: "desc" }, take: 30 }),
-    getAppSetting("deadline_time", "18:00"),
-    getAppSetting("reminder_time", "10:00"),
+    getDeadlineSettings(),
   ]);
+
+  const thisWeek = currentWeekStart();
+  const targetWeek = resolveTargetWeek(settings);
 
   return (
     <>
       <h1 className="pg">週・締切設定</h1>
       <div className="stack">
         <div className="card">
-          <h2>締切・リマインダー時刻</h2>
-          <form action={updateSettings} className="filterbar">
-            <label>
-              提出締切(金曜)
-              <input type="time" name="deadline_time" defaultValue={deadlineTime} style={{ width: "auto" }} />
-            </label>
-            <label>
-              リマインダー送信(金曜)
-              <input type="time" name="reminder_time" defaultValue={reminderTime} style={{ width: "auto" }} />
-            </label>
-            <button className="btn pri sm">保存</button>
+          <h2>提出締切とリマインダー</h2>
+          <form action={updateSettings} className="stack" style={{ gap: 12 }}>
+            <div className="filterbar">
+              <label>
+                提出締切
+                <select name="deadline_day_offset" defaultValue={String(settings.deadlineOffset)}>
+                  {DEADLINE_DAY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+              <input
+                type="time"
+                name="deadline_time"
+                defaultValue={settings.deadlineTime}
+                style={{ width: "auto" }}
+                aria-label="提出締切の時刻"
+              />
+            </div>
+            <div className="filterbar">
+              <label>
+                リマインダー送信
+                <select name="reminder_day_offset" defaultValue={String(settings.reminderOffset)}>
+                  {DEADLINE_DAY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+              <input
+                type="time"
+                name="reminder_time"
+                defaultValue={settings.reminderTime}
+                style={{ width: "auto" }}
+                aria-label="リマインダー送信の時刻"
+              />
+            </div>
+            <div>
+              <button className="btn pri sm">保存</button>
+            </div>
           </form>
+
+          <div className="alert" style={{ marginTop: 14 }}>
+            <span className="ic">i</span>
+            <span>
+              現在の設定では、<b>{weekRangeLabel(thisWeek)}</b> の週報の締切は{" "}
+              <b>{deadlineDisplay(thisWeek, settings)}</b> です。
+              <br />
+              いま提出対象になっているのは <b>{weekRangeLabel(targetWeek)}</b> の週報です。
+            </span>
+          </div>
+
           <p className="note" style={{ marginBottom: 0 }}>
-            リマインダーは金曜の指定時刻に未提出者へ、締切超過通知は締切の5分後に送信されます。
+            締切を「翌週の月曜」以降にすると、締切日までは前の週の週報を書くことになります
+            (例: 締切が翌週の火曜なら、月曜・火曜は前週分を入力し、水曜から当週分に切り替わります)。
+            未提出者へのリマインダーは指定日時に、締切超過の通知は締切時刻を過ぎたタイミングで、
+            それぞれ1回だけ送信されます。
           </p>
         </div>
 

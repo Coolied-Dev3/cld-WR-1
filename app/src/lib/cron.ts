@@ -1,8 +1,9 @@
 import cron from "node-cron";
 import { prisma } from "./prisma";
 import { reportingUserWhere } from "./team-data";
-import { currentWeekStart, weekLabel, lastNWeekStarts, toDateKey } from "./week";
+import { weekLabel, lastNWeekStarts, toDateKey, addDays } from "./week";
 import { sendTeamsNotification, getAppSetting } from "./notify";
+import { getDeadlineSettings, weekDueToday, deadlineDisplay } from "./deadline";
 
 const globalFlags = globalThis as unknown as { cronStarted?: boolean };
 
@@ -12,10 +13,10 @@ function nowJst(): string {
   return `${j.getUTCHours().toString().padStart(2, "0")}:${j.getUTCMinutes().toString().padStart(2, "0")}`;
 }
 
-async function alreadySentThisWeek(type: "reminder" | "overdue" | "alert", marker: string) {
-  const weekStart = currentWeekStart();
+/** 同じ週・同じ種別の通知を二重送信しないための記録 */
+async function alreadySent(type: "reminder" | "overdue" | "alert", marker: string) {
   const log = await prisma.notificationLog.findFirst({
-    where: { type, sentAt: { gte: weekStart }, payload: { path: "$.marker", equals: marker } },
+    where: { type, payload: { path: "$.marker", equals: marker } },
   });
   return !!log;
 }
@@ -26,9 +27,8 @@ async function markSent(type: "reminder" | "overdue" | "alert", marker: string) 
   });
 }
 
-/** 未提出者リスト(activeな member/manager/executive で今週の提出なし) */
-async function getUnsubmitted() {
-  const weekStart = currentWeekStart();
+/** 指定週の未提出者(提出対象ロールのみ)。提出不要週なら null */
+async function getUnsubmitted(weekStart: Date) {
   const skip = await prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } });
   if (skip) return null;
   const memberships = await prisma.teamMembership.findMany({
@@ -43,42 +43,49 @@ async function getUnsubmitted() {
   return memberships.filter((m) => !submittedIds.has(m.userId.toString()));
 }
 
+/** リマインダー: 設定された「リマインダー日」の指定時刻を過ぎたら1回だけ送る */
 async function runReminderCheck() {
-  const weekStart = currentWeekStart();
-  const weekKey = toDateKey(weekStart);
-  const reminderTime = await getAppSetting("reminder_time", "10:00");
-  if (nowJst() < reminderTime) return;
-  if (await alreadySentThisWeek("reminder", `auto-${weekKey}`)) return;
+  const s = await getDeadlineSettings();
+  const weekStart = weekDueToday(s.reminderOffset);
+  if (!weekStart) return; // 今日はリマインダー日ではない
+  if (nowJst() < s.reminderTime) return;
 
-  const unsubmitted = await getUnsubmitted();
-  if (!unsubmitted) return; // 提出不要週
-  await markSent("reminder", `auto-${weekKey}`);
+  const marker = `reminder-${toDateKey(weekStart)}`;
+  if (await alreadySent("reminder", marker)) return;
+
+  const unsubmitted = await getUnsubmitted(weekStart);
+  if (!unsubmitted) return;
+  await markSent("reminder", marker);
+
   for (const m of unsubmitted) {
     await sendTeamsNotification("reminder", {
       userId: m.userId,
       title: "週報提出のお願い",
-      body: `${m.user.name} さん、本日は週報の提出日です。${weekLabel(weekStart)} の週報を提出してください。`,
+      body: `${m.user.name} さん、${weekLabel(weekStart)} の週報が未提出です。提出締切は ${deadlineDisplay(weekStart, s)} です。`,
       mentionEmail: m.user.email,
     });
   }
 }
 
+/** 締切超過: 設定された「締切日」の締切時刻を過ぎたら1回だけ送る */
 async function runOverdueCheck() {
-  const weekStart = currentWeekStart();
-  const weekKey = toDateKey(weekStart);
-  const deadlineTime = await getAppSetting("deadline_time", "18:00");
-  if (nowJst() < deadlineTime) return;
-  if (await alreadySentThisWeek("overdue", `auto-${weekKey}`)) return;
+  const s = await getDeadlineSettings();
+  const weekStart = weekDueToday(s.deadlineOffset);
+  if (!weekStart) return; // 今日は締切日ではない
+  if (nowJst() < s.deadlineTime) return;
 
-  const unsubmitted = await getUnsubmitted();
+  const marker = `overdue-${toDateKey(weekStart)}`;
+  if (await alreadySent("overdue", marker)) return;
+
+  const unsubmitted = await getUnsubmitted(weekStart);
   if (!unsubmitted) return;
-  await markSent("overdue", `auto-${weekKey}`);
+  await markSent("overdue", marker);
 
-  // 本人+所属長へ
   const leaders = await prisma.teamMembership.findMany({
     where: { endDate: null, isLeader: true },
     include: { user: true },
   });
+
   for (const m of unsubmitted) {
     await sendTeamsNotification("overdue", {
       userId: m.userId,
@@ -86,6 +93,7 @@ async function runOverdueCheck() {
       body: `${m.user.name} さんの ${weekLabel(weekStart)} の週報が締切を過ぎても未提出です。`,
       mentionEmail: m.user.email,
     });
+    // 所属長が複数いる場合は全員に通知する
     for (const leader of leaders.filter((l) => l.teamId === m.teamId && l.userId !== m.userId)) {
       await sendTeamsNotification("overdue", {
         userId: leader.userId,
@@ -96,16 +104,17 @@ async function runOverdueCheck() {
     }
   }
 
-  // 低評価連続アラート(締切後に判定)
-  await runLowRatingAlert(weekKey);
+  // 締切後に低評価の連続をチェックする
+  await runLowRatingAlert(weekStart);
 }
 
-async function runLowRatingAlert(weekKey: string) {
-  if (await alreadySentThisWeek("alert", `auto-${weekKey}`)) return;
-  await markSent("alert", `auto-${weekKey}`);
+async function runLowRatingAlert(weekStart: Date) {
+  const marker = `alert-${toDateKey(weekStart)}`;
+  if (await alreadySent("alert", marker)) return;
+  await markSent("alert", marker);
 
   const alertWeeks = Number(await getAppSetting("alert_consecutive_low_weeks", "3"));
-  const weeks = lastNWeekStarts(alertWeeks + 2); // 新しい順
+  const weeks = lastNWeekStarts(alertWeeks + 2, weekStart); // 締切を迎えた週から遡る
   const memberships = await prisma.teamMembership.findMany({
     where: { endDate: null, user: reportingUserWhere },
     include: { user: true },
@@ -144,15 +153,20 @@ export function startCron() {
   if (globalFlags.cronStarted) return;
   globalFlags.cronStarted = true;
 
-  // 金曜のみ5分おきにチェック(設定時刻を過ぎたら1回だけ送信)
-  cron.schedule("*/5 * * * 5", async () => {
-    try {
-      await runReminderCheck();
-      await runOverdueCheck();
-    } catch (e) {
-      console.error("[cron] notification check failed:", e);
-    }
-  }, { timezone: "Asia/Tokyo" });
+  // 締切日は設定で変わる(当週の金曜〜翌週の金曜)ため、毎日5分おきに確認し、
+  // 設定された日・時刻を過ぎたタイミングで1回だけ送信する
+  cron.schedule(
+    "*/5 * * * *",
+    async () => {
+      try {
+        await runReminderCheck();
+        await runOverdueCheck();
+      } catch (e) {
+        console.error("[cron] notification check failed:", e);
+      }
+    },
+    { timezone: "Asia/Tokyo" }
+  );
 
   console.log("[cron] weekly-report notification scheduler started");
 }

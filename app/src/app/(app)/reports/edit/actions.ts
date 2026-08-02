@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser, logAudit } from "@/lib/auth";
-import { currentWeekStart, weekLabel } from "@/lib/week";
+import { weekLabel } from "@/lib/week";
+import { getDeadlineSettings, resolveTargetWeek, deadlineAtOf, deadlineDisplay } from "@/lib/deadline";
 import { sendTeamsNotification } from "@/lib/notify";
 import type { ComplianceLevel, ComplianceVisibility, SelfRating } from "@prisma/client";
 
@@ -11,10 +12,15 @@ export type SaveState = { error?: string };
 
 export async function saveReport(_prev: SaveState, formData: FormData): Promise<SaveState> {
   const user = await requireUser(["member", "manager"]);
-  const weekStart = currentWeekStart();
+  const settings = await getDeadlineSettings();
+  const weekStart = resolveTargetWeek(settings);
 
   const skip = await prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } });
-  if (skip) return { error: `今週は提出不要週です(${skip.reason})。` };
+  if (skip) return { error: `この週は提出不要週です(${skip.reason})。` };
+
+  if (new Date() > deadlineAtOf(weekStart, settings.deadlineOffset, settings.deadlineTime)) {
+    return { error: `提出締切(${deadlineDisplay(weekStart, settings)})を過ぎています。管理者に連絡してください。` };
+  }
 
   const membership = user.memberships[0];
   if (!membership) return { error: "チームに所属していないため提出できません。管理者に連絡してください。" };

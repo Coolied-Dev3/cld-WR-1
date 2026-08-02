@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { createMasterCategory, updateMasterCategory, toggleMasterCategory } from "../actions";
+import {
+  createMasterCategory,
+  updateMasterCategory,
+  toggleMasterCategory,
+  moveMasterCategory,
+} from "../actions";
 
 type Cat = {
   id: bigint;
@@ -16,15 +21,37 @@ function CategoryRow({
   kind,
   isParent,
   used,
+  isFirst,
+  isLast,
 }: {
   cat: Cat;
   kind: "issue" | "cm";
   isParent: boolean;
   used: boolean;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   return (
     <div className={isParent ? "master-parent" : "master-child"}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span className="order-btns">
+          <form action={moveMasterCategory}>
+            <input type="hidden" name="kind" value={kind} />
+            <input type="hidden" name="id" value={cat.id.toString()} />
+            <input type="hidden" name="direction" value="up" />
+            <button className="btn sm" disabled={isFirst} title="1つ上へ" aria-label={`${cat.name}を1つ上へ`}>
+              ▲
+            </button>
+          </form>
+          <form action={moveMasterCategory}>
+            <input type="hidden" name="kind" value={kind} />
+            <input type="hidden" name="id" value={cat.id.toString()} />
+            <input type="hidden" name="direction" value="down" />
+            <button className="btn sm" disabled={isLast} title="1つ下へ" aria-label={`${cat.name}を1つ下へ`}>
+              ▼
+            </button>
+          </form>
+        </span>
         <span style={{ opacity: cat.isActive ? 1 : 0.45, fontWeight: isParent ? 700 : 400 }}>
           {cat.name}
         </span>
@@ -79,24 +106,34 @@ function MasterPanel({
   return (
     <div className="card">
       <h2>{title}</h2>
-      {parents.map((p) => (
-        <div key={p.id.toString()} style={{ marginBottom: 18 }}>
-          <CategoryRow cat={p} kind={kind} isParent used={usedIds.has(p.id.toString())} />
-          <div style={{ marginTop: 8 }}>
-            {categories
-              .filter((c) => c.parentId === p.id)
-              .map((c) => (
+      {parents.map((p, pi) => {
+        const children = categories.filter((c) => c.parentId === p.id);
+        return (
+          <div key={p.id.toString()} style={{ marginBottom: 18 }}>
+            <CategoryRow
+              cat={p}
+              kind={kind}
+              isParent
+              used={usedIds.has(p.id.toString())}
+              isFirst={pi === 0}
+              isLast={pi === parents.length - 1}
+            />
+            <div style={{ marginTop: 8 }}>
+              {children.map((c, ci) => (
                 <CategoryRow
                   key={c.id.toString()}
                   cat={c}
                   kind={kind}
                   isParent={false}
                   used={usedIds.has(c.id.toString())}
+                  isFirst={ci === 0}
+                  isLast={ci === children.length - 1}
                 />
               ))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       <form
         action={createMasterCategory}
@@ -148,7 +185,7 @@ export default async function AdminMastersPage() {
     <>
       <h1 className="pg">
         マスタ管理
-        <small>大分類と課題・対策の2階層。説明は週報入力時に選択の目安として表示されます</small>
+        <small>▲▼で表示順を変更できます。説明は週報入力時に選択の目安として表示されます</small>
       </h1>
       <div className="hrow">
         <MasterPanel

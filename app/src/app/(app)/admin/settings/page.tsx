@@ -41,9 +41,43 @@ export default async function AdminSettingsPage() {
           <form action={testWebhook} style={{ marginTop: 10 }}>
             <button className="btn sm">テスト送信</button>
           </form>
-          <p className="note" style={{ marginBottom: 0 }}>
-            Teamsの対象チャネルで「ワークフロー」→「Webhook 要求を受信したときにチャネルに投稿する」を作成し、
-            発行されたURLを貼り付けてください。URLが未設定の間、通知は送信されません(システムは通常どおり動作します)。
+
+          <details style={{ marginTop: 14 }}>
+            <summary className="btn sm" style={{ listStyle: "none", display: "inline-block" }}>
+              Webhook URLの取得手順を見る
+            </summary>
+            <ol className="setup-steps">
+              <li>
+                Teamsで通知を受け取りたい<b>チャネル</b>を開き、チャネル名の右の「…」→
+                <b>「ワークフロー」</b>を選択します。
+              </li>
+              <li>
+                テンプレート一覧から
+                <b>「Webhook 要求を受信したときにチャネルに投稿する」</b>を選びます。
+              </li>
+              <li>
+                ワークフロー名(例:<code>週報システム通知</code>)を入力し、
+                サインインを確認して<b>「次へ」</b>。
+              </li>
+              <li>投稿先のチームとチャネルが正しいことを確認して<b>「ワークフローの追加」</b>。</li>
+              <li>
+                表示された<b>Webhook URL</b>(<code>https://prod-…logic.azure.com/…</code>)をコピーし、
+                上の欄に貼り付けて<b>「保存」</b>します。
+              </li>
+              <li>
+                <b>「テスト送信」</b>を押し、Teamsのチャネルにテスト通知が届けば設定完了です。
+              </li>
+            </ol>
+            <p className="note" style={{ margin: 0 }}>
+              URLは後から確認できないため、控えておくことを推奨します。再取得する場合は
+              Power Automate でワークフローを開き直してください。
+              なお、以前の「Incoming Webhook(コネクタ)」はMicrosoftが廃止を進めているため使用しません。
+            </p>
+          </details>
+
+          <p className="note" style={{ marginBottom: 0, marginTop: 12 }}>
+            URLが未設定の間、通知は送信されません(システムは通常どおり動作します)。
+            送信される通知は、リマインダー・締切超過・コメント・提出・低評価アラートの5種類です。
           </p>
         </div>
 

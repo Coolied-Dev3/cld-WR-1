@@ -149,6 +149,55 @@ export async function updateMasterCategory(formData: FormData) {
   revalidatePath("/admin/masters");
 }
 
+/**
+ * 表示順を1つ上/下に入れ替える。
+ * 入れ替えは同じ階層の中でのみ行う(大分類どうし、または同じ大分類に属する項目どうし)。
+ */
+export async function moveMasterCategory(formData: FormData) {
+  const admin = await requireUser(["admin"]);
+  const kind = String(formData.get("kind"));
+  const id = BigInt(String(formData.get("id")));
+  const direction = String(formData.get("direction")); // up | down
+  const isIssue = kind === "issue";
+
+  const target = isIssue
+    ? await prisma.issueCategory.findUnique({ where: { id } })
+    : await prisma.countermeasureCategory.findUnique({ where: { id } });
+  if (!target) return;
+
+  // 同じ階層の兄弟(大分類どうし、または同じ大分類に属する項目どうし)を表示順に並べる
+  const where = { parentId: target.parentId };
+  const orderBy = [{ sortOrder: "asc" as const }, { id: "asc" as const }];
+  const siblings = isIssue
+    ? await prisma.issueCategory.findMany({ where, orderBy })
+    : await prisma.countermeasureCategory.findMany({ where, orderBy });
+
+  const index = siblings.findIndex((s) => s.id === target.id);
+  const swapIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || swapIndex < 0 || swapIndex >= siblings.length) return; // 端なので動かせない
+
+  // sortOrder が重複・未設定でも確実に入れ替わるよう、並び全体を振り直す
+  const ids = siblings.map((s) => s.id);
+  [ids[index], ids[swapIndex]] = [ids[swapIndex], ids[index]];
+
+  await prisma.$transaction(
+    ids.map((sid, i) =>
+      isIssue
+        ? prisma.issueCategory.update({ where: { id: sid }, data: { sortOrder: i } })
+        : prisma.countermeasureCategory.update({ where: { id: sid }, data: { sortOrder: i } })
+    )
+  );
+
+  await logAudit(
+    admin.id,
+    "master.reorder",
+    isIssue ? "issue_categories" : "countermeasure_categories",
+    id,
+    { direction, name: target.name }
+  );
+  revalidatePath("/admin/masters");
+}
+
 export async function toggleMasterCategory(formData: FormData) {
   const admin = await requireUser(["admin"]);
   const kind = String(formData.get("kind"));
@@ -195,7 +244,14 @@ export async function deleteSkipWeek(formData: FormData) {
 
 export async function updateSettings(formData: FormData) {
   const admin = await requireUser(["admin"]);
-  const keys = ["deadline_time", "reminder_time", "alert_consecutive_low_weeks", "teams_webhook_url"];
+  const keys = [
+    "deadline_day_offset",
+    "deadline_time",
+    "reminder_day_offset",
+    "reminder_time",
+    "alert_consecutive_low_weeks",
+    "teams_webhook_url",
+  ];
   for (const key of keys) {
     const value = formData.get(key);
     if (value !== null) {

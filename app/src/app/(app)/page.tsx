@@ -2,8 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { currentWeekStart, weekRangeLabel, weekLabel, toDateKey, formatDateTime, addDays } from "@/lib/week";
-import { getAppSetting } from "@/lib/notify";
+import { weekRangeLabel, weekLabel, formatDateTime } from "@/lib/week";
+import { getDeadlineSettings, resolveTargetWeek, deadlineDisplay } from "@/lib/deadline";
 import { ratingMark, ratingClass, ratingScore, statusLabel } from "@/lib/labels";
 
 export default async function HomePage() {
@@ -12,13 +12,14 @@ export default async function HomePage() {
   // 役員は週報を提出しないため、確認する側の画面(提出状況)を入口にする
   if (user.role === "executive") redirect("/team/status");
 
-  const weekStart = currentWeekStart();
-  const [myThisWeek, skip, deadlineTime, myReports, recentComments] = await Promise.all([
+  // 締切が翌週にずれている場合、締切日までは前週が「提出すべき週」になる
+  const settings = await getDeadlineSettings();
+  const weekStart = resolveTargetWeek(settings);
+  const [myThisWeek, skip, myReports, recentComments] = await Promise.all([
     prisma.weeklyReport.findUnique({
       where: { userId_weekStartDate: { userId: user.id, weekStartDate: weekStart } },
     }),
     prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } }),
-    getAppSetting("deadline_time", "18:00"),
     prisma.weeklyReport.findMany({
       where: { userId: user.id, status: { not: "draft" } },
       orderBy: { weekStartDate: "desc" },
@@ -33,18 +34,17 @@ export default async function HomePage() {
     }),
   ]);
 
-  const deadline = addDays(weekStart, 4); // 金曜
   const trend = [...myReports].reverse();
 
   return (
     <>
       <h1 className="pg">
-        ホーム<small>{weekRangeLabel(weekStart)} の週</small>
+        ホーム<small>対象週: {weekRangeLabel(weekStart)}</small>
       </h1>
       <div className="stack">
         <div className="card" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 13, color: "var(--ink2)" }}>今週の週報</div>
+            <div style={{ fontSize: 13, color: "var(--ink2)" }}>提出する週報</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>
               {skip ? (
                 <span className="pill mut">提出不要週({skip.reason})</span>
@@ -57,14 +57,14 @@ export default async function HomePage() {
               )}
               {!skip && (
                 <span className="note" style={{ marginLeft: 10 }}>
-                  締切: {deadline.getUTCMonth() + 1}/{deadline.getUTCDate()}(金) {deadlineTime}
+                  締切: {deadlineDisplay(weekStart, settings)}
                 </span>
               )}
             </div>
           </div>
           {!skip && (
             <Link href="/reports/edit" className="btn pri">
-              {myThisWeek ? "今週の週報を編集する" : "今週の週報を書く"}
+              {myThisWeek ? "週報を編集する" : "週報を書く"}
             </Link>
           )}
         </div>

@@ -2,8 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { currentWeekStart, weekRangeLabel, addDays, jstToday } from "@/lib/week";
-import { getAppSetting } from "@/lib/notify";
+import { weekRangeLabel, addDays } from "@/lib/week";
+import { getDeadlineSettings, resolveTargetWeek, deadlineAtOf, deadlineDisplay } from "@/lib/deadline";
 import { ReportForm } from "./report-form";
 import type { CategoryOption, IssueRow } from "./issues-editor";
 
@@ -31,8 +31,11 @@ export default async function ReportEditPage(props: {
   const user = await requireUser(["member", "manager"]);
   const { copy } = await props.searchParams;
 
-  const weekStart = currentWeekStart();
-  const [skip, existing, issueCategories, cmCategories, deadlineTime] = await Promise.all([
+  // 締切が翌週にずれている場合、締切日までは前週が対象になる
+  const settings = await getDeadlineSettings();
+  const weekStart = resolveTargetWeek(settings);
+
+  const [skip, existing, issueCategories, cmCategories] = await Promise.all([
     prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } }),
     prisma.weeklyReport.findUnique({
       where: { userId_weekStartDate: { userId: user.id, weekStartDate: weekStart } },
@@ -40,7 +43,6 @@ export default async function ReportEditPage(props: {
     }),
     loadCategories("issue"),
     loadCategories("cm"),
-    getAppSetting("deadline_time", "18:00"),
   ]);
 
   if (skip) {
@@ -48,17 +50,15 @@ export default async function ReportEditPage(props: {
       <>
         <h1 className="pg">週報入力<small>対象週: {weekRangeLabel(weekStart)}</small></h1>
         <div className="card">
-          <p>今週は提出不要週です({skip.reason})。</p>
+          <p>この週は提出不要週です({skip.reason})。</p>
           <Link href="/" className="btn">ホームへ戻る</Link>
         </div>
       </>
     );
   }
 
-  // 締切チェック(金曜 deadline_time JST)
-  const [dh, dm] = deadlineTime.split(":").map(Number);
-  const deadline = new Date(addDays(weekStart, 4).getTime() + ((dh - 9) * 60 + dm) * 60 * 1000); // JST→UTC
-  const pastDeadline = new Date() > deadline;
+  const pastDeadline =
+    new Date() > deadlineAtOf(weekStart, settings.deadlineOffset, settings.deadlineTime);
   const locked = existing?.status === "locked";
 
   if (pastDeadline || locked) {
@@ -69,7 +69,7 @@ export default async function ReportEditPage(props: {
           <p>
             {locked
               ? "この週報はロックされています。修正が必要な場合は管理者に連絡してください。"
-              : `提出締切(金曜 ${deadlineTime})を過ぎています。修正が必要な場合は管理者に連絡してください。`}
+              : `提出締切(${deadlineDisplay(weekStart, settings)})を過ぎています。修正が必要な場合は管理者に連絡してください。`}
           </p>
           {existing && <Link href={`/reports/${existing.id}`} className="btn">提出内容を見る</Link>}
         </div>
@@ -113,13 +113,16 @@ export default async function ReportEditPage(props: {
       <h1 className="pg">
         週報入力<small>対象週: {weekRangeLabel(weekStart)}</small>
       </h1>
-      {!existing && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}
+      >
+        <span className="note">提出締切: {deadlineDisplay(weekStart, settings)}</span>
+        {!existing && (
           <Link href="/reports/edit?copy=1" className="btn sm">
             先週の内容をコピー
           </Link>
-        </div>
-      )}
+        )}
+      </div>
       <ReportForm issueCategories={issueCategories} cmCategories={cmCategories} initial={initial} />
     </>
   );

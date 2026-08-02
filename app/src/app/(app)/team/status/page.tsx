@@ -13,6 +13,7 @@ import {
   formatDateTime,
 } from "@/lib/week";
 import { ratingMark, ratingClass } from "@/lib/labels";
+import { getDeadlineSettings, deadlineDisplay } from "@/lib/deadline";
 import { sendReminder } from "./actions";
 
 export default async function StatusPage(props: {
@@ -54,7 +55,7 @@ export default async function StatusPage(props: {
   const unconfirmedCount = reports.filter(
     (r) => r.userId !== user.id && r.confirmations.length === 0
   ).length;
-  const deadline = addDays(weekStart, 4); // 金曜
+  const settings = await getDeadlineSettings();
 
   return (
     <>
@@ -107,9 +108,7 @@ export default async function StatusPage(props: {
             <div className="v num" style={{ color: unsubmittedCount > 0 ? "var(--bad)" : undefined }}>
               {unsubmittedCount}名
             </div>
-            <div className="s note num">
-              締切: {deadline.getUTCMonth() + 1}/{deadline.getUTCDate()}(金)
-            </div>
+            <div className="s note num">締切: {deadlineDisplay(weekStart, settings)}</div>
           </div>
           <div className="kpi">
             <div className="k">確認待ち</div>
