@@ -66,8 +66,16 @@ $action = New-ScheduledTaskAction `
     -Execute "powershell.exe" `
     -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$StartScript`""
 
-$trigger = New-ScheduledTaskTrigger -AtStartup
-$trigger.Delay = "PT30S"   # OS起動から30秒待ってから実行
+# トリガーは2つ用意する。
+#  1) OS起動時: 通常の再起動で立ち上げる
+#  2) 5分ごと : 高速スタートアップ等で(1)が発火しなかった場合や、
+#               アプリが落ちた場合に復旧させるための保険
+# MultipleInstances = IgnoreNew により、アプリが動いている間は(2)は何もしない。
+$triggerBoot = New-ScheduledTaskTrigger -AtStartup
+$triggerBoot.Delay = "PT30S"   # OS起動から30秒待ってから実行
+
+$triggerWatch = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+    -RepetitionInterval (New-TimeSpan -Minutes 5)
 
 $principalObj = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
@@ -75,20 +83,21 @@ $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
     -StartWhenAvailable `
+    -MultipleInstances IgnoreNew `
     -RestartCount 3 `
     -RestartInterval (New-TimeSpan -Minutes 1) `
     -ExecutionTimeLimit ([TimeSpan]::Zero)
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $triggerBoot, $triggerWatch `
     -Principal $principalObj -Settings $settings `
-    -Description "週報管理システム(Next.js)をOS起動時に自動起動する" | Out-Null
+    -Description "週報管理システム(Next.js)をOS起動時に自動起動し、5分ごとに稼働を確認して落ちていれば復旧する" | Out-Null
 
-Ok "タスク $TaskName を登録しました(OS起動30秒後に実行 / SYSTEMアカウント)"
+Ok "タスク $TaskName を登録しました(OS起動30秒後 + 5分ごとの稼働確認 / SYSTEMアカウント)"
 
 Write-Host ""
 Ok "設定が完了しました。"
 Write-Host "  MySQL      : サービス $ServiceName (自動起動)"
-Write-Host "  アプリ      : タスク $TaskName (OS起動時)"
+Write-Host "  アプリ      : タスク $TaskName (OS起動時 + 5分ごとの稼働確認)"
 Write-Host ""
 Write-Host "今すぐアプリを起動する場合: Start-ScheduledTask -TaskName $TaskName"
 Write-Host "状態の確認             : Get-ScheduledTask -TaskName $TaskName | Get-ScheduledTaskInfo"

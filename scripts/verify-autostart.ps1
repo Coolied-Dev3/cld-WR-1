@@ -1,5 +1,5 @@
 ﻿# 自動起動設定の確認(管理者権限で実行すること)
-# タスクを実際に起動し、アプリが応答するところまで確認する。
+# タスクとサービスの設定内容を表示し、実際に起動するところまで確認する。
 
 $ErrorActionPreference = "Continue"
 New-Item -ItemType Directory -Force "C:\Claude-Work\weekly-report-system\logs" | Out-Null
@@ -12,37 +12,42 @@ Get-Service MySQL84 | Select-Object Name, Status, StartType | Format-List
 
 Write-Host "=== タスク設定 ==="
 $t = Get-ScheduledTask -TaskName $TaskName
-$t | Select-Object TaskName, State | Format-List
+Write-Host "状態           : $($t.State)"
 Write-Host "実行アカウント : $($t.Principal.UserId)"
-Write-Host "トリガー       : $($t.Triggers[0].CimClass.CimClassName) / 遅延 $($t.Triggers[0].Delay)"
+Write-Host "多重起動       : $($t.Settings.MultipleInstances)"
+foreach ($tr in $t.Triggers) {
+    $kind = $tr.CimClass.CimClassName -replace "MSFT_Task", "" -replace "Trigger", ""
+    $rep  = if ($tr.Repetition.Interval) { " / 繰り返し $($tr.Repetition.Interval)" } else { "" }
+    $dly  = if ($tr.Delay) { " / 遅延 $($tr.Delay)" } else { "" }
+    Write-Host "トリガー       : $kind$dly$rep"
+}
 Write-Host "実行内容       : $($t.Actions[0].Execute) $($t.Actions[0].Arguments)"
 
-Write-Host "=== タスクを起動して応答を確認 ==="
-Start-ScheduledTask -TaskName $TaskName
-Write-Host "起動しました。アプリの応答を待ちます(最大90秒)..."
+Write-Host ""
+Write-Host "=== 実行結果 ==="
+Get-ScheduledTaskInfo -TaskName $TaskName |
+    Select-Object LastRunTime, LastTaskResult, NextRunTime, NumberOfMissedRuns | Format-List
 
+Write-Host "=== アプリの応答確認 ==="
 $ok = $false
 for ($i = 0; $i -lt 30; $i++) {
-    Start-Sleep -Seconds 3
     try {
         $r = Invoke-WebRequest -Uri "http://localhost:3000/login" -UseBasicParsing -TimeoutSec 5
-        Write-Host "HTTP $($r.StatusCode) - アプリが応答しました($(($i + 1) * 3)秒)"
+        Write-Host "HTTP $($r.StatusCode) - 応答しました"
         $ok = $true
         break
-    } catch { }
+    } catch {
+        if ($i -eq 0) {
+            Write-Host "応答がないためタスクを起動します..."
+            Start-ScheduledTask -TaskName $TaskName
+        }
+        Start-Sleep -Seconds 3
+    }
 }
-if (-not $ok) { Write-Host "エラー: アプリが応答しませんでした" }
-
-Write-Host "=== タスクの実行結果 ==="
-Get-ScheduledTaskInfo -TaskName $TaskName |
-    Select-Object LastRunTime, LastTaskResult, NumberOfMissedRuns | Format-List
+if (-not $ok) { Write-Host "エラー: アプリが応答しませんでした。logs\app-*.log を確認してください。" }
 
 Write-Host "=== node プロセス ==="
 Get-Process node -ErrorAction SilentlyContinue |
-    Select-Object Id, ProcessName, StartTime | Format-Table -AutoSize
-
-Write-Host "=== アプリログ(末尾) ==="
-$applog = "C:\Claude-Work\weekly-report-system\logs\app-$(Get-Date -Format yyyyMMdd).log"
-if (Test-Path $applog) { Get-Content $applog -Tail 10 } else { Write-Host "(ログなし)" }
+    Select-Object Id, StartTime | Format-Table -AutoSize
 
 Stop-Transcript | Out-Null

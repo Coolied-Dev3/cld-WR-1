@@ -1,6 +1,10 @@
 ﻿# 週報管理システム アプリ起動スクリプト(タスクスケジューラから実行される)
 #
-# MySQLの起動を待ってから Next.js を本番モードで起動する。
+# 既に起動していれば何もせずに終了し、起動していなければ
+# MySQLの起動を待ってから Next.js を本番モードで立ち上げる。
+# タスクは「OS起動時」に加えて5分ごとにも実行されるため、
+# アプリが落ちた場合はこのスクリプトが自動的に復旧させる役割も持つ。
+#
 # ログは logs\app-YYYYMMDD.log に追記される。
 
 $ErrorActionPreference = "Stop"
@@ -12,6 +16,21 @@ $LogDir  = "C:\Claude-Work\weekly-report-system\logs"
 $Port    = 3000
 $DbHost  = "127.0.0.1"
 $DbPort  = 3306
+
+function Test-Port($targetHost, $port) {
+    try {
+        $c = New-Object Net.Sockets.TcpClient
+        $c.Connect($targetHost, $port)
+        $c.Close()
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+# --- 既に起動している場合は何もしない ---
+# 5分ごとに実行されるため、ここでログを書くと肥大化する。静かに終了する。
+if (Test-Port "127.0.0.1" $Port) { exit 0 }
 
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 $LogFile = Join-Path $LogDir ("app-" + (Get-Date -Format "yyyyMMdd") + ".log")
@@ -27,15 +46,8 @@ Write-Log "=== 起動処理を開始 ==="
 $deadline = (Get-Date).AddSeconds(180)
 $dbReady = $false
 while ((Get-Date) -lt $deadline) {
-    try {
-        $c = New-Object Net.Sockets.TcpClient
-        $c.Connect($DbHost, $DbPort)
-        $c.Close()
-        $dbReady = $true
-        break
-    } catch {
-        Start-Sleep -Seconds 3
-    }
+    if (Test-Port $DbHost $DbPort) { $dbReady = $true; break }
+    Start-Sleep -Seconds 3
 }
 if (-not $dbReady) {
     Write-Log "エラー: MySQL($DbHost`:$DbPort)に接続できません。起動を中止します。"
@@ -43,14 +55,11 @@ if (-not $dbReady) {
 }
 Write-Log "MySQLの起動を確認しました"
 
-# --- 既に起動していないか確認 ---
-try {
-    $c = New-Object Net.Sockets.TcpClient
-    $c.Connect("127.0.0.1", $Port)
-    $c.Close()
-    Write-Log "ポート $Port は既に使用中です。二重起動を避けるため終了します。"
+# --- 起動直前にもう一度確認(同時実行対策) ---
+if (Test-Port "127.0.0.1" $Port) {
+    Write-Log "ポート $Port は既に使用中のため終了します"
     exit 0
-} catch { }
+}
 
 # --- Next.js を本番モードで起動 ---
 Set-Location $AppDir
