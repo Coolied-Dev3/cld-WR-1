@@ -161,6 +161,34 @@ HTTPS化したら `app/.env` に `COOKIE_SECURE=1` を追加します。
 powershell -ExecutionPolicy Bypass -File C:\Claude-Work\weekly-report-system\scripts\backup.ps1
 ```
 
+> mysqldump の出力は `--result-file` で直接ファイルに書き出しています。
+> PowerShell のパイプ(`| Out-File`)を経由すると、コンソールのエンコーディング(CP932)で
+> 解釈されて日本語が壊れ、**リストアできないダンプ**になるためです。
+
+復元手順(検証用DBに戻して中身を確認する例):
+
+```powershell
+$dump  = (Get-ChildItem C:\Backup\weekly-report\*.sql | Sort-Object LastWriteTime -Desc)[0].FullName
+$mysql = "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe"
+& $mysql -u root -p --host=127.0.0.1 -e "CREATE DATABASE weekly_report_verify CHARACTER SET utf8mb4 COLLATE utf8mb4_ja_0900_as_cs;"
+Get-Content $dump | & $mysql -u root -p --host=127.0.0.1 weekly_report_verify
+```
+
+### 3.6 トランザクションデータの削除
+
+テスト運用から本番運用に切り替える際など、週報のデータだけを消したい場合に使います。
+**実行前に必ずバックアップを取得してください。**
+
+```powershell
+cd C:\Claude-Work\weekly-report-system\app
+node prisma/clear-transactions.mjs            # 削除対象の件数を表示するだけ(削除しない)
+node prisma/clear-transactions.mjs --confirm  # 実際に削除する
+```
+
+| 削除される | 削除されない |
+|---|---|
+| 週報 / 課題・対策 / モラル報告 / 閲覧ログ / コメント / 確認状況 / 通知履歴 / 監査ログ | ユーザー / 事業室 / 所属履歴 / 課題マスタ / 対策マスタ / 提出不要週 / システム設定 |
+
 ## 4. Teams通知の設定(Power Automate Workflows)
 
 通知先のTeamsチャネルでWebhookを1つ作成し、そのURLをシステムに登録するだけです(所要5分程度)。

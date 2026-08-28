@@ -21,9 +21,16 @@ New-Item -ItemType Directory -Force $backupDir | Out-Null
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $outFile = Join-Path $backupDir "weekly_report_$stamp.sql"
 
+# 出力は --result-file で mysqldump に直接書かせる。
+# PowerShell のパイプ(| Out-File)を経由すると、コンソールのエンコーディング(CP932)で
+# 解釈されて日本語が壊れ、リストアできないダンプになるため。
 $env:MYSQL_PWD = $dbPass
-& $mysqldump -u $dbUser --host=$dbHost --port=$dbPort --single-transaction --routines --triggers $dbName | Out-File -FilePath $outFile -Encoding utf8
+& $mysqldump -u $dbUser --host=$dbHost --port=$dbPort `
+    --single-transaction --routines --triggers --no-tablespaces `
+    --default-character-set=utf8mb4 --result-file="$outFile" $dbName
+$dumpExit = $LASTEXITCODE
 $env:MYSQL_PWD = $null
+if ($dumpExit -ne 0) { throw "mysqldump が失敗しました (exit code: $dumpExit)" }
 
 if ((Get-Item $outFile).Length -lt 1KB) { throw "バックアップファイルが小さすぎます: $outFile" }
 
