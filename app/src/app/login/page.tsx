@@ -8,9 +8,7 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <form className="login-card" action={formAction}>
-        <div className="brand">
-          <span className="mark">週</span>クーリード 週報管理システム
-        </div>
+        <div className="brand">クーリード 週報管理システム</div>
         {state.error && (
           <div className="alert err" style={{ marginBottom: 14 }}>
             <span className="ic">!</span>
@@ -29,7 +27,7 @@ export default function LoginPage() {
           {pending ? "ログイン中…" : "ログイン"}
         </button>
         <p className="note" style={{ marginTop: 14, textAlign: "center" }}>
-          アカウントは管理者が発行します。不明な場合は管理部門へお問い合わせください。
+          アカウントは管理者が発行します。不明な場合は管理本部へ問い合わせください。
         </p>
       </form>
     </div>
