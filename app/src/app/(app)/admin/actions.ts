@@ -246,6 +246,7 @@ export async function deleteSkipWeek(formData: FormData) {
 export async function updateSettings(formData: FormData) {
   const admin = await requireUser(["admin"]);
   const keys = [
+    "app_base_url",
     "deadline_day_offset",
     "deadline_time",
     "reminder_day_offset",
@@ -271,8 +272,10 @@ export async function updateSettings(formData: FormData) {
 export async function testWebhook() {
   const admin = await requireUser(["admin"]);
   await sendTeamsNotification("alert", {
+    userId: admin.id,
     title: "クーリード 週報管理システム テスト通知",
-    body: `Webhook設定のテスト送信です(実行者: ${admin.name})。この通知が見えていれば設定は正常です。`,
+    body: `Webhook設定のテスト送信です。この通知が ${admin.name} さん宛のチャットに届いていれば設定は正常です。`,
+    mentionEmail: admin.email,
   });
   revalidatePath("/admin/settings");
 }

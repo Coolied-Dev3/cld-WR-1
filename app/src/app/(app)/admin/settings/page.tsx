@@ -4,10 +4,23 @@ import { getAppSetting } from "@/lib/notify";
 import { formatDateTime } from "@/lib/week";
 import { updateSettings, testWebhook } from "../actions";
 
+// Power Automate のトリガーに貼り付けるJSONスキーマ(アプリが送信する形式)
+const JSON_SCHEMA = `{
+  "type": "object",
+  "properties": {
+    "to":    { "type": "string" },
+    "title": { "type": "string" },
+    "body":  { "type": "string" },
+    "link":  { "type": "string" },
+    "type":  { "type": "string" }
+  }
+}`;
+
 export default async function AdminSettingsPage() {
   await requireUser(["admin"]);
-  const [webhookUrl, alertWeeks, recentNotifications] = await Promise.all([
+  const [webhookUrl, baseUrl, alertWeeks, recentNotifications] = await Promise.all([
     getAppSetting("teams_webhook_url", ""),
+    getAppSetting("app_base_url", ""),
     getAppSetting("alert_consecutive_low_weeks", "3"),
     prisma.notificationLog.findMany({ orderBy: { sentAt: "desc" }, take: 10, include: { user: true } }),
   ]);
@@ -29,6 +42,19 @@ export default async function AdminSettingsPage() {
               />
             </div>
             <div className="fld">
+              <label>アプリのURL(通知に載せるリンク用)</label>
+              <input
+                type="text"
+                name="app_base_url"
+                defaultValue={baseUrl}
+                placeholder="http://192.168.220.55:3000"
+              />
+              <p className="note" style={{ margin: "4px 0 0" }}>
+                他のPCから開けるアドレスを設定してください。空欄の場合、通知にリンクは載りません
+                (localhost は受信者の端末では開けないため)。
+              </p>
+            </div>
+            <div className="fld">
               <label>低評価アラートの連続週数</label>
               <select name="alert_consecutive_low_weeks" defaultValue={alertWeeks} style={{ width: "auto" }}>
                 {["2", "3", "4"].map((v) => (
@@ -44,40 +70,58 @@ export default async function AdminSettingsPage() {
 
           <details style={{ marginTop: 14 }}>
             <summary className="btn sm" style={{ listStyle: "none", display: "inline-block" }}>
-              Webhook URLの取得手順を見る
+              Teamsフローの作成手順を見る(個人チャットへ通知)
             </summary>
+            <p className="note" style={{ margin: "10px 0 0" }}>
+              通知は宛先(コメントを受けた本人、未提出者など)の<b>個人チャット</b>に届きます。
+              チャネルには投稿されません。以下の手順でフローを作成してください。
+            </p>
             <ol className="setup-steps">
               <li>
-                Teamsで通知を受け取りたい<b>チャネル</b>を開き、チャネル名の右の「…」→
-                <b>「ワークフロー」</b>を選択します。
+                <a href="https://make.powerautomate.com/" target="_blank" rel="noopener noreferrer">
+                  Power Automate
+                </a>
+                を開き、<b>「作成」→「インスタント クラウド フロー」</b>を選びます。
               </li>
               <li>
-                テンプレート一覧から
-                <b>「Webhook 要求を受信したときにチャネルに投稿する」</b>を選びます。
+                トリガーに
+                <b>「HTTP 要求の受信時(When a Teams webhook request is received)」</b>を選択します。
               </li>
               <li>
-                ワークフロー名(例:<code>週報システム通知</code>)を入力し、
-                サインインを確認して<b>「次へ」</b>。
-              </li>
-              <li>投稿先のチームとチャネルが正しいことを確認して<b>「ワークフローの追加」</b>。</li>
-              <li>
-                表示された<b>Webhook URL</b>(<code>https://prod-…logic.azure.com/…</code>)をコピーし、
-                上の欄に貼り付けて<b>「保存」</b>します。
+                トリガーの<b>「要求本文の JSON スキーマ」</b>に次を貼り付けます。
+                <pre className="code-block">{JSON_SCHEMA}</pre>
               </li>
               <li>
-                <b>「テスト送信」</b>を押し、Teamsのチャネルにテスト通知が届けば設定完了です。
+                次のアクションで
+                <b>「チャットまたはチャネルでメッセージを投稿する」</b>を追加し、以下を設定します。
+                <ul className="setup-sub">
+                  <li>投稿者: <b>フロー ボット</b></li>
+                  <li>投稿先: <b>グループ チャット</b> ではなく <b>チャット(Chat with Flow bot)</b></li>
+                  <li>Recipient(宛先): 動的なコンテンツから <code>to</code> を選択</li>
+                  <li>Message: <code>title</code> を太字にし、改行して <code>body</code>、最後に <code>link</code></li>
+                </ul>
+              </li>
+              <li>
+                保存すると<b>Webhook URL</b>が発行されるので、上の欄に貼り付けて<b>「保存」</b>します。
+              </li>
+              <li>
+                <b>「テスト送信」</b>を押し、<b>自分あてのチャット</b>に通知が届けば完了です。
+              </li>
+              <li>
+                旧フロー(チャネルに投稿するもの)は、動作確認後に
+                Power Automate で<b>オフ</b>にしてください。
               </li>
             </ol>
             <p className="note" style={{ margin: 0 }}>
-              URLは後から確認できないため、控えておくことを推奨します。再取得する場合は
-              Power Automate でワークフローを開き直してください。
-              なお、以前の「Incoming Webhook(コネクタ)」はMicrosoftが廃止を進めているため使用しません。
+              宛先はシステムに登録されているメールアドレスです。Teams(Microsoft 365)の
+              アカウントと一致している必要があります。一致しない場合、そのユーザーへの送信は失敗します。
             </p>
           </details>
 
           <p className="note" style={{ marginBottom: 0, marginTop: 12 }}>
             URLが未設定の間、通知は送信されません(システムは通常どおり動作します)。
-            送信される通知は、リマインダー・締切超過・コメント・提出・低評価アラートの5種類です。
+            送信される通知は、リマインダー・締切超過・コメント・提出・低評価アラートの5種類で、
+            いずれも宛先本人の個人チャットに届きます。
           </p>
         </div>
 

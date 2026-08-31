@@ -63,6 +63,7 @@ async function runReminderCheck() {
       title: "週報提出のお願い",
       body: `${m.user.name} さん、${weekLabel(weekStart)} の週報が未提出です。提出締切は ${deadlineDisplay(weekStart, s)} です。`,
       mentionEmail: m.user.email,
+      link: "/reports/edit",
     });
   }
 }
@@ -92,14 +93,16 @@ async function runOverdueCheck() {
       title: "週報が未提出です(締切超過)",
       body: `${m.user.name} さんの ${weekLabel(weekStart)} の週報が締切を過ぎても未提出です。`,
       mentionEmail: m.user.email,
+      link: "/reports/edit",
     });
     // 所属長が複数いる場合は全員に通知する
     for (const leader of leaders.filter((l) => l.teamId === m.teamId && l.userId !== m.userId)) {
       await sendTeamsNotification("overdue", {
         userId: leader.userId,
         title: "メンバーの週報が未提出です",
-        body: `${m.user.name} さんの ${weekLabel(weekStart)} の週報が未提出です(所属長: ${leader.user.name} さん宛)。`,
+        body: `${m.user.name} さんの ${weekLabel(weekStart)} の週報が未提出です。`,
         mentionEmail: leader.user.email,
+        link: "/team/status",
       });
     }
   }
@@ -143,6 +146,7 @@ async function runLowRatingAlert(weekStart: Date) {
           title: "低評価が連続しているメンバーがいます",
           body: `${m.user.name} さんの自己評価が${streak}週連続で△・✕です。個別フォローを検討してください。`,
           mentionEmail: leader.user.email,
+          link: `/team/personal?user=${m.userId}`,
         });
       }
     }

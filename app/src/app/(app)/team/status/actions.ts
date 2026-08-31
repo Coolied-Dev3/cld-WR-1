@@ -34,6 +34,7 @@ export async function sendReminder(formData: FormData) {
       title: "週報提出のお願い",
       body: `${m.name} さん、${weekLabel(weekStart)} の週報が未提出です。提出をお願いします。`,
       mentionEmail: m.email,
+      link: "/reports/edit",
     });
   }
   await logAudit(user.id, "notify.manual_reminder", "users", targetId ? BigInt(targetId) : undefined, {

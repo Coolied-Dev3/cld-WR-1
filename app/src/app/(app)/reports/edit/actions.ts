@@ -151,6 +151,7 @@ export async function saveReport(_prev: SaveState, formData: FormData): Promise<
         title: "週報が提出されました",
         body: `${user.name} さんが ${weekLabel(weekStart)} の週報を提出しました。`,
         mentionEmail: leader.user.email,
+        link: `/reports/${report.id}`,
       });
     }
   }

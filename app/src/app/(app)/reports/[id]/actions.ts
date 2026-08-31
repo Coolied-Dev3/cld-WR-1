@@ -38,8 +38,9 @@ export async function addComment(formData: FormData) {
     await sendTeamsNotification("comment", {
       userId: report.userId,
       title: "週報にコメントが届きました",
-      body: `${user.name} さんが ${report.user.name} さんの ${weekLabel(report.weekStartDate)} の週報にコメントしました。`,
+      body: `${user.name} さんが ${weekLabel(report.weekStartDate)} の週報にコメントしました。`,
       mentionEmail: report.user.email,
+      link: `/reports/${reportId}`,
     });
   }
   revalidatePath(`/reports/${reportId}`);
