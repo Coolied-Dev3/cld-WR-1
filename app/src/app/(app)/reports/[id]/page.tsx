@@ -214,11 +214,7 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
               ))}
               {/* 本人には返信欄を常時表示。それ以外は折りたたみ */}
               {isOwner ? (
-                <form
-                  action={addComment}
-                  className="cmt reply"
-                  style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "flex-end" }}
-                >
+                <form action={addComment} className="comment-form reply-block">
                   <input type="hidden" name="reportId" value={report.id.toString()} />
                   <input type="hidden" name="parentCommentId" value={c.id.toString()} />
                   {/* Enterで送信されないよう、1行のinputではなくtextareaを使う */}
@@ -231,12 +227,9 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
                   <button className="btn sm pri" style={{ whiteSpace: "nowrap" }}>返信する</button>
                 </form>
               ) : (
-                <details className="cmt reply" style={{ marginBottom: 14 }}>
+                <details className="reply-block">
                   <summary className="note" style={{ cursor: "pointer" }}>返信する</summary>
-                  <form
-                    action={addComment}
-                    style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "flex-end" }}
-                  >
+                  <form action={addComment} className="comment-form" style={{ marginTop: 6 }}>
                     <input type="hidden" name="reportId" value={report.id.toString()} />
                     <input type="hidden" name="parentCommentId" value={c.id.toString()} />
                     <AutoTextarea name="content" rows={2} placeholder="返信を書く…" required />
@@ -248,7 +241,7 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
           ))}
           {isReviewer && (
             <>
-              <form action={addComment} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+              <form action={addComment} className="comment-form">
                 <input type="hidden" name="reportId" value={report.id.toString()} />
                 <AutoTextarea name="content" rows={2} placeholder="コメントを書く…" required />
                 <button className="btn pri" style={{ whiteSpace: "nowrap" }}>送信</button>
