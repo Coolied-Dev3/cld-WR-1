@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, canViewReport } from "@/lib/auth";
 import { weekLabel, formatDateTime } from "@/lib/week";
 import { ratingMark, ratingClass, ratingLabel, statusLabel, complianceLevelLabel } from "@/lib/labels";
+import { AutoTextarea } from "@/components/auto-textarea";
 import { addComment, confirmReport } from "./actions";
 
 export default async function ReportDetailPage(props: { params: Promise<{ id: string }> }) {
@@ -216,20 +217,29 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
                 <form
                   action={addComment}
                   className="cmt reply"
-                  style={{ display: "flex", gap: 8, marginBottom: 16 }}
+                  style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "flex-end" }}
                 >
                   <input type="hidden" name="reportId" value={report.id.toString()} />
                   <input type="hidden" name="parentCommentId" value={c.id.toString()} />
-                  <input type="text" name="content" placeholder={`${c.user.name} さんに返信を書く…`} required />
+                  {/* Enterで送信されないよう、1行のinputではなくtextareaを使う */}
+                  <AutoTextarea
+                    name="content"
+                    rows={2}
+                    placeholder={`${c.user.name} さんに返信を書く…`}
+                    required
+                  />
                   <button className="btn sm pri" style={{ whiteSpace: "nowrap" }}>返信する</button>
                 </form>
               ) : (
                 <details className="cmt reply" style={{ marginBottom: 14 }}>
                   <summary className="note" style={{ cursor: "pointer" }}>返信する</summary>
-                  <form action={addComment} style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  <form
+                    action={addComment}
+                    style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "flex-end" }}
+                  >
                     <input type="hidden" name="reportId" value={report.id.toString()} />
                     <input type="hidden" name="parentCommentId" value={c.id.toString()} />
-                    <input type="text" name="content" placeholder="返信を書く…" required />
+                    <AutoTextarea name="content" rows={2} placeholder="返信を書く…" required />
                     <button className="btn sm pri" style={{ whiteSpace: "nowrap" }}>送信</button>
                   </form>
                 </details>
@@ -238,9 +248,9 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
           ))}
           {isReviewer && (
             <>
-              <form action={addComment} style={{ display: "flex", gap: 8 }}>
+              <form action={addComment} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
                 <input type="hidden" name="reportId" value={report.id.toString()} />
-                <input type="text" name="content" placeholder="コメントを書く…" required />
+                <AutoTextarea name="content" rows={2} placeholder="コメントを書く…" required />
                 <button className="btn pri" style={{ whiteSpace: "nowrap" }}>送信</button>
               </form>
               <p className="note" style={{ margin: "8px 0 0" }}>

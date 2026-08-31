@@ -234,6 +234,43 @@ node prisma/clear-transactions.mjs --confirm  # 実際に削除する
 > 例えば締切が翌週の火曜なら、月曜・火曜は前週分を入力し、水曜から当週分に切り替わります。
 > ホーム画面と週報入力画面には、そのとき提出対象になっている週が表示されます。
 
+## 4-2. 週報コメントの一括作成(Excelで確認してからDB登録)
+
+提出された週報にまとめてコメントを付けるための仕組み。
+**Excelで文面を確認・修正してから**DBに登録する3ステップ構成で、勝手に投稿されることはない。
+
+```powershell
+cd C:\Claude-Work\weekly-report-system\app
+
+# 1) 対象週の週報を抽出(--week 省略時は最新の提出週)
+node scripts/weekly-comments/export-reports.mjs --week 2026-08-24
+
+# 2) 確認用Excelにシートを追加(シート名=作成日。--sheet 省略時は本日)
+python scripts/weekly-comments/build-sheet.py ../comments/reports-2026-08-24.json "C:\Claude-Work\User-data\2026-週報コメント案.xlsx" ../comments/drafts-2026-08-24.json
+
+# --- ここでExcelのいちばん左(最新の日付)のシートを開き、L列「コメント案」を確認・修正。登録しない行はM列を「いいえ」に ---
+
+# 3) Excelを読み取り、内容を確認してから登録(--sheet 省略時は最新の日付シート)
+python scripts/weekly-comments/read-sheet.py "C:\Claude-Work\User-data\2026-週報コメント案.xlsx" ../comments/sheet.json
+node scripts/weekly-comments/apply-comments.mjs ../comments/sheet.json --dry-run   # 確認のみ
+node scripts/weekly-comments/apply-comments.mjs ../comments/sheet.json             # 登録
+```
+
+コメント案のブックは **`C:\Claude-Work\User-data\2026-週報コメント案.xlsx`**。
+1回の作成につき1シートを追加し、**シート名はコメントを作成した日の日付**(対象週の日付ではない)。
+
+| ファイル | 役割 |
+|---|---|
+| `export-reports.mjs` | 提出済み週報(本文・課題・対策・コンプラ)をJSONに抽出 |
+| `build-sheet.py` | 確認用Excelにシートを追加。**1回の作成につき1シート**(シート名=作成日、新しいシートが左)。編集するのは **L列(コメント案)・M列(登録)・N列(備考)** のみ |
+| `read-sheet.py` | 対象シートを読み取り、登録対象(M列=はい かつ コメント案あり)を抽出 |
+| `apply-comments.mjs` | `comments` と `audit_logs` に登録。既定の投稿者は小野崎(`--author 13` で変更可) |
+
+- 中間ファイルの出力先 `comments/` は氏名と週報本文を含むため **Gitの管理対象外**。
+- 二重投稿の防止として、**同じ投稿者のトップレベルコメントが既にある週報はスキップ**する。
+- 投稿者本人の週報もスキップする(画面と同様、本人はトップレベルのコメントを付けられないため)。
+- 画面からの投稿と違い、**Teams通知は送らない**(まとめて登録するため)。
+
 ## 5. 運用メモ
 
 - **ユーザー追加**: 管理者「ユーザー管理」から登録。パスワードは管理者が発行・確認できる(平文管理)
@@ -250,9 +287,11 @@ weekly-report-system/
 ├─ README.md
 ├─ docs/                  … 要件定義・DB設計・画面設計・モックアップ
 ├─ scripts/backup.ps1     … 日次バックアップスクリプト
+├─ comments/              … 週報コメント案の作業フォルダ(Git管理外)
 └─ app/                   … Next.jsアプリ本体
    ├─ prisma/schema.prisma … DBスキーマ(14テーブル)
    ├─ prisma/seed.mjs      … 初期データ投入
+   ├─ scripts/weekly-comments/ … 週報コメントの一括作成(Excel確認→DB登録)
    └─ src/
       ├─ lib/              … 認証・セッション・週計算・通知・統計
       ├─ app/(app)/        … 画面(ホーム/週報/チーム/全社/管理)

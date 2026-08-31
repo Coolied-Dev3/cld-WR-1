@@ -21,3 +21,6 @@ Thumbs.db
 # backup output
 /backup/
 *.sql.bak
+
+# 週報コメント案(氏名・週報本文を含むためコミットしない)
+/comments/
