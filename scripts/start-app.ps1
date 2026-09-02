@@ -61,6 +61,23 @@ if (Test-Port "127.0.0.1" $Port) {
     exit 0
 }
 
+# --- .env を環境変数に反映する ---
+# next start は .env を読み込まないため、ここで明示的に設定する。
+# (DATABASE_URL が効いているのは Prisma が独自に .env を読むためで、
+#  COOKIE_SECURE のようにアプリ側で参照する値は反映されない)
+$envFile = Join-Path $AppDir ".env"
+if (Test-Path $envFile) {
+    foreach ($line in Get-Content $envFile -Encoding UTF8) {
+        $t = $line.Trim()
+        if (-not $t -or $t.StartsWith("#") -or -not $t.Contains("=")) { continue }
+        $pair = $t -split "=", 2
+        $key = $pair[0].Trim()
+        $val = $pair[1].Trim().Trim('"')
+        [Environment]::SetEnvironmentVariable($key, $val, "Process")
+    }
+    Write-Log ".env を読み込みました"
+}
+
 # --- Next.js を本番モードで起動 ---
 Set-Location $AppDir
 $env:NODE_ENV = "production"
