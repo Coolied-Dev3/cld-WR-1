@@ -2,6 +2,7 @@
 
 社内向け週報の提出・確認・統計を一元管理するWebアプリケーション。
 
+- **公開URL**: https://wrsys.coolied.com (サーバー内部では `http://localhost:3000` で稼働)
 - **技術構成**: Next.js 16(App Router)+ Prisma + MySQL 8.4 / Node.js 24(Dockerなし)
 - **ドキュメント**: [docs/01_要件定義書.md](docs/01_要件定義書.md) / [docs/02_DB設計書.md](docs/02_DB設計書.md) / [docs/03_画面設計書.md](docs/03_画面設計書.md)
 - **アプリ本体**: `app/`
@@ -146,11 +147,19 @@ Get-ScheduledTask -TaskName WeeklyReportApp | Get-ScheduledTaskInfo   # 状態�
 > **PowerShellスクリプトの文字コード**: 日本語コメントを含むため、必ず **UTF-8(BOM付き)** で保存してください。
 > BOMなしだと Windows PowerShell 5.1 が文字化けし、構文エラーで起動しません。
 
-### 3.4 HTTPS化(推奨)
+### 3.4 公開URLとHTTPS
 
-ハラスメント報告を扱うため、社内LANでもHTTPS化を推奨します。
-IISのリバースプロキシ(ARR)またはCaddy/nginxを前段に置き、社内CA証明書を設定してください。
-HTTPS化したら `app/.env` に `COOKIE_SECURE=1` を追加します。
+外部からは **https://wrsys.coolied.com** で公開されています。
+アプリ自身は `http://localhost:3000` で動作し、前段のリバースプロキシがHTTPSを終端しています。
+`http://` でアクセスした場合は `https://` へリダイレクトされます(308)。
+
+通知に載せるリンクは、管理画面の「システム設定」→「アプリのURL」で
+`https://wrsys.coolied.com` を設定しています。
+
+> **Cookieのsecure属性**: HTTPSで運用しているため、`app/.env` に `COOKIE_SECURE=1` を
+> 追加することを推奨します。設定するとセッションCookieがHTTPS接続でのみ送信され、
+> 盗聴のリスクを下げられます。ただし設定後は `http://localhost:3000` から直接
+> ログインできなくなるため、管理作業も公開URL経由で行うことになります。
 
 ### 3.5 バックアップ(日次)
 
