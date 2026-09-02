@@ -253,7 +253,11 @@ python scripts/weekly-comments/build-sheet.py ../comments/reports-2026-08-24.jso
 # 3) Excelを読み取り、内容を確認してから登録(--sheet 省略時は最新の日付シート)
 python scripts/weekly-comments/read-sheet.py "C:\Claude-Work\User-data\2026-週報コメント案.xlsx" ../comments/sheet.json
 node scripts/weekly-comments/apply-comments.mjs ../comments/sheet.json --dry-run   # 確認のみ
-node scripts/weekly-comments/apply-comments.mjs ../comments/sheet.json             # 登録
+node scripts/weekly-comments/apply-comments.mjs ../comments/sheet.json             # 登録(+確認済み)
+
+# 4) シートに載っていない週報も含めて、対象週をまとめて確認済みにする
+node scripts/weekly-comments/confirm-reports.mjs --week 2026-08-24 --dry-run
+node scripts/weekly-comments/confirm-reports.mjs --week 2026-08-24
 ```
 
 コメント案のブックは **`C:\Claude-Work\User-data\2026-週報コメント案.xlsx`**。
@@ -264,11 +268,14 @@ node scripts/weekly-comments/apply-comments.mjs ../comments/sheet.json          
 | `export-reports.mjs` | 提出済み週報(本文・課題・対策・コンプラ)をJSONに抽出 |
 | `build-sheet.py` | 確認用Excelにシートを追加。**1回の作成につき1シート**(シート名=作成日、新しいシートが左)。編集するのは **L列(コメント案)・M列(登録)・N列(備考)** のみ |
 | `read-sheet.py` | 対象シートを読み取り、登録対象(M列=はい かつ コメント案あり)を抽出 |
-| `apply-comments.mjs` | `comments` と `audit_logs` に登録。既定の投稿者は小野崎(`--author 13` で変更可) |
+| `apply-comments.mjs` | `comments` に登録し、あわせて **`report_confirmations` に「確認済み」を登録**。`audit_logs` にも記録。既定の投稿者は小野崎(`--author 13` で変更可、`--no-confirm` で確認済みを付けない) |
+| `confirm-reports.mjs` | 対象週の提出済み週報をまとめて確認済みにする(シートに載っていない後出しの週報の締め用) |
 
 - 中間ファイルの出力先 `comments/` は氏名と週報本文を含むため **Gitの管理対象外**。
 - 二重投稿の防止として、**同じ投稿者のトップレベルコメントが既にある週報はスキップ**する。
 - 投稿者本人の週報もスキップする(画面と同様、本人はトップレベルのコメントを付けられないため)。
+- コメント登録と同時に**週報を「確認済み」にする**(コメントが二重投稿で見送られた週報にも付ける)。
+- **本人の週報は確認済みにできない**(画面の `confirmReport` と同じ仕様)。
 - 画面からの投稿と違い、**Teams通知は送らない**(まとめて登録するため)。
 
 ## 5. 運用メモ

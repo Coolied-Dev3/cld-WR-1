@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
-import { NavLinks, type NavItem } from "./nav-links";
+import { NavProvider, MenuButton, SideNav, type NavItem } from "./nav-links";
 
 const roleLabels: Record<string, string> = {
   member: "",
@@ -48,10 +48,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <>
+    <NavProvider>
       <header className="appbar">
+        <MenuButton />
         <Link href="/" className="brand">
-          <span className="mark">週</span>クーリード 週報管理システム
+          <span className="mark">週</span>
+          <span className="brand-name">クーリード 週報管理システム</span>
         </Link>
         <span className="sp" />
         <span className="who">
@@ -63,11 +65,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </form>
       </header>
       <div className="shell-body">
-        <nav className="nav">
-          <NavLinks items={items} />
-        </nav>
+        <SideNav items={items} />
         <main className="main">{children}</main>
       </div>
-    </>
+    </NavProvider>
   );
 }

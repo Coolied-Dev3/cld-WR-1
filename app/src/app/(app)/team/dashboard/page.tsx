@@ -168,6 +168,7 @@ export default async function DashboardPage(props: {
             {stats.issueCounts.length === 0 ? (
               <p className="note">データがありません。</p>
             ) : (
+              <div className="tscroll">
               <table>
                 <tbody>
                   {stats.issueCounts.slice(0, 8).map((c) => (
@@ -190,6 +191,7 @@ export default async function DashboardPage(props: {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
           <div className="card">
@@ -197,6 +199,7 @@ export default async function DashboardPage(props: {
             {stats.cmCounts.length === 0 ? (
               <p className="note">データがありません。</p>
             ) : (
+              <div className="tscroll">
               <table>
                 <tbody>
                   {stats.cmCounts.slice(0, 8).map((c) => (
@@ -207,6 +210,7 @@ export default async function DashboardPage(props: {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
