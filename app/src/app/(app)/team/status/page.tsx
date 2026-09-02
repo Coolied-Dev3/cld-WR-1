@@ -43,12 +43,22 @@ export default async function StatusPage(props: {
         userId: { in: members.map((m) => m.id) },
         status: { not: "draft" },
       },
-      include: { confirmations: { where: { userId: user.id } } },
+      include: {
+        confirmations: { where: { userId: user.id } },
+        // 本人(週報の提出者)が書いたコメント = 管理側コメントへの返信。
+        // 相関条件(comment.userId = report.userId)はPrismaのincludeで書けないため、
+        // 全件を新しい順で取り、下のstaffReplyOfで本人の分だけを拾う
+        comments: { select: { userId: true, createdAt: true }, orderBy: { createdAt: "desc" } },
+      },
     }),
     prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } }),
   ]);
 
   const reportOf = (userId: bigint) => reports.find((r) => r.userId === userId);
+
+  /** その週報に対して本人が返信したコメントのうち、最新のもの */
+  type ReportRow = (typeof reports)[number];
+  const staffReplyOf = (r: ReportRow) => r.comments.find((c) => c.userId === r.userId);
 
   const submittedCount = members.filter((m) => reportOf(m.id)).length;
   const unsubmittedCount = members.length - submittedCount;
@@ -125,7 +135,7 @@ export default async function StatusPage(props: {
               <thead>
                 <tr>
                   <th>氏名</th><th>事業室</th><th>状態</th><th>評価</th>
-                  <th>提出日時</th><th>確認</th><th></th>
+                  <th>提出日時</th><th>確認</th><th>スタッフコメント</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -159,6 +169,13 @@ export default async function StatusPage(props: {
                         ) : (
                           <span className="note">―</span>
                         )}
+                      </td>
+                      <td className="note num">
+                        {(() => {
+                          if (!r) return "―";
+                          const reply = staffReplyOf(r);
+                          return reply ? formatDateTime(reply.createdAt) : "―";
+                        })()}
                       </td>
                       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                         {r ? (
