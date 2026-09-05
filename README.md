@@ -163,11 +163,34 @@ Get-ScheduledTask -TaskName WeeklyReportApp | Get-ScheduledTaskInfo   # 状態�
 
 ### 3.5 バックアップ(日次)
 
-`scripts/backup.ps1` をタスクスケジューラで毎日実行してください(例: 毎日 2:00)。
-保存先は既定で `C:\Backup\weekly-report`。**必ずNAS等の別筐体にもコピーしてください。**
+`scripts/backup.ps1` がタスクスケジューラのタスク **WeeklyReportDbBackup** として登録済みで、毎日 2:00 に実行されます。
+
+| 項目 | 内容 |
+|---|---|
+| 保存先 | `C:\Users\701-CAMM4-CL-1\OneDrive - クーリード株式会社\72_cld週報system`(OneDrive同期でクラウド側にも複製) |
+| ファイル名 | `cld_Wr_YYYY-MM-DD_HHmmss.sql` |
+| 保持期間 | 30日より古い `cld_Wr_*.sql` は実行時に自動削除 |
+| 実行ログ | `logs/backup.log`(OK/NG、出力ファイル・サイズ・削除件数) |
+| 実行条件 | ユーザー `701-CAMM4-CL-1` がログオン中のとき(2:00 にPCがオフ/スリープなら次回起動時に実行) |
+
+タスクの登録・再登録(時刻を変える場合は `-At` を変更):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File C:\Claude-Work\weekly-report-system\scripts\backup.ps1
+$action   = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Claude-Work\weekly-report-system\scripts\backup.ps1"'
+$trigger  = New-ScheduledTaskTrigger -Daily -At 02:00
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName WeeklyReportDbBackup -Action $action -Trigger $trigger -Settings $settings -Force
+```
+
+> ログオフ中でも実行したい場合は、管理者権限のPowerShellで上記に
+> `-Principal (New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U)` を付けて登録し直してください。
+
+手動実行・状態確認:
+
+```powershell
+Start-ScheduledTask -TaskName WeeklyReportDbBackup
+Get-ScheduledTask -TaskName WeeklyReportDbBackup | Get-ScheduledTaskInfo   # LastTaskResult が 0 なら成功
+Get-Content C:\Claude-Work\weekly-report-system\logs\backup.log -Tail 5
 ```
 
 > mysqldump の出力は `--result-file` で直接ファイルに書き出しています。
@@ -177,7 +200,7 @@ powershell -ExecutionPolicy Bypass -File C:\Claude-Work\weekly-report-system\scr
 復元手順(検証用DBに戻して中身を確認する例):
 
 ```powershell
-$dump  = (Get-ChildItem C:\Backup\weekly-report\*.sql | Sort-Object LastWriteTime -Desc)[0].FullName
+$dump  = (Get-ChildItem 'C:\Users\701-CAMM4-CL-1\OneDrive - クーリード株式会社\72_cld週報system\cld_Wr_*.sql' | Sort-Object LastWriteTime -Desc)[0].FullName
 $mysql = "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe"
 & $mysql -u root -p --host=127.0.0.1 -e "CREATE DATABASE weekly_report_verify CHARACTER SET utf8mb4 COLLATE utf8mb4_ja_0900_as_cs;"
 Get-Content $dump | & $mysql -u root -p --host=127.0.0.1 weekly_report_verify
