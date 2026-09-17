@@ -40,15 +40,25 @@ export async function getManagedTeamIds(user: CurrentUser): Promise<bigint[]> {
   return [];
 }
 
-/** 週報を閲覧できるか(本人 / 該当チームの現所属長 / 役員) */
-export function canViewReport(
+/**
+ * 週報を閲覧できるか(本人 / 提出者が現在所属する事業室の所属長 / 役員)。
+ * 2つの事業室に所属する人の週報は、どちらの事業室の所属長も閲覧できる。
+ * 週報レコードの teamId(提出時の主所属)だけでなく、提出者の現所属で判定する。
+ */
+export async function canViewReport(
   user: CurrentUser,
   report: { userId: bigint; teamId: bigint }
-): boolean {
+): Promise<boolean> {
   if (report.userId === user.id) return true;
   if (user.role === "executive") return true;
   if (user.role === "manager") {
-    return user.memberships.some((m) => m.isLeader && m.teamId === report.teamId);
+    const leaderTeamIds = user.memberships.filter((m) => m.isLeader).map((m) => m.teamId);
+    if (leaderTeamIds.length === 0) return false;
+    if (leaderTeamIds.includes(report.teamId)) return true;
+    const n = await prisma.teamMembership.count({
+      where: { userId: report.userId, endDate: null, teamId: { in: leaderTeamIds } },
+    });
+    return n > 0;
   }
   return false;
 }

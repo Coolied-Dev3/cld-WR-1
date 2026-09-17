@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, logAudit } from "@/lib/auth";
 import { weekLabel } from "@/lib/week";
 import { getDeadlineSettings, resolveTargetWeek, deadlineAtOf, deadlineDisplay } from "@/lib/deadline";
-import { masterScopeFor } from "@/lib/team-data";
+import { masterScopeFor, primaryMembership } from "@/lib/team-data";
 import { sendTeamsNotification } from "@/lib/notify";
 import type { ComplianceLevel, ComplianceVisibility, SelfRating } from "@prisma/client";
 
@@ -24,7 +24,8 @@ export async function saveReport(_prev: SaveState, formData: FormData): Promise<
     return { error: `提出締切(${deadlineDisplay(weekStart, settings)})を過ぎています。管理者に連絡してください。` };
   }
 
-  const membership = user.memberships[0];
+  // 週報レコードには主所属を記録する(2所属の場合は先に登録された方)
+  const membership = primaryMembership(user.memberships);
   if (!membership) return { error: "チームに所属していないため提出できません。管理者に連絡してください。" };
 
   const submitMode = formData.get("mode") === "submit";
@@ -139,11 +140,17 @@ export async function saveReport(_prev: SaveState, formData: FormData): Promise<
 
   await logAudit(user.id, submitMode ? "report.submit" : "report.save_draft", "weekly_reports", report.id);
 
-  // 新規提出時のみ所属長へTeams通知(所属長が複数いる場合は全員に送る)
+  // 新規提出時のみ所属長へTeams通知(所属する全事業室の所属長。同じ人には1回だけ送る)
   if (submitMode && !wasSubmitted) {
     const leaders = await prisma.teamMembership.findMany({
-      where: { teamId: membership.teamId, isLeader: true, endDate: null, userId: { not: user.id } },
+      where: {
+        teamId: { in: user.memberships.map((m) => m.teamId) },
+        isLeader: true,
+        endDate: null,
+        userId: { not: user.id },
+      },
       include: { user: true },
+      distinct: ["userId"],
     });
     for (const leader of leaders) {
       await sendTeamsNotification("submitted", {

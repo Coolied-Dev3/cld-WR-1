@@ -36,7 +36,7 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
       confirmations: { include: { user: true } },
     },
   });
-  if (!report || !canViewReport(user, report)) notFound();
+  if (!report || !(await canViewReport(user, report))) notFound();
 
   const isOwner = report.userId === user.id;
   const isReviewer = !isOwner && (user.role === "manager" || user.role === "executive");

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { getViewableTeams } from "@/lib/team-data";
+import { getViewableTeams, reportTeamWhere } from "@/lib/team-data";
 import { weekLabel, formatDateTime } from "@/lib/week";
 import { complianceLevelLabel } from "@/lib/labels";
 
@@ -22,7 +22,7 @@ export default async function CompliancePage(props: {
         ? {}
         : {
             visibility: "manager_and_executive",
-            report: { teamId: { in: teams.map((t) => t.id) } },
+            report: reportTeamWhere(teams.map((t) => t.id)),
           }),
     },
     orderBy: { createdAt: "desc" },

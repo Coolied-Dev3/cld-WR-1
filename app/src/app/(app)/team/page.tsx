@@ -21,7 +21,7 @@ export default async function TeamReportsPage(props: {
   const members = await getTeamMembers(selected.id);
   const reports = await prisma.weeklyReport.findMany({
     where: {
-      teamId: selected.id,
+      // 2つの事業室に所属する人の週報は主所属側に記録されるため、事業室ではなくメンバーで絞る
       weekStartDate: { in: weeks },
       status: { not: "draft" },
       userId: { in: members.map((m) => m.id) },

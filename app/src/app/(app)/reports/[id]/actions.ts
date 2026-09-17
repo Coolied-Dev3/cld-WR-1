@@ -17,7 +17,7 @@ export async function addComment(formData: FormData) {
     where: { id: reportId },
     include: { user: true },
   });
-  if (!report || !canViewReport(user, report)) return;
+  if (!report || !(await canViewReport(user, report))) return;
 
   const isOwner = report.userId === user.id;
   // 本人は返信のみ可(トップレベルコメントは所属長・役員)
@@ -50,7 +50,7 @@ export async function confirmReport(formData: FormData) {
   const user = await requireUser(["manager", "executive"]);
   const reportId = BigInt(String(formData.get("reportId")));
   const report = await prisma.weeklyReport.findUnique({ where: { id: reportId } });
-  if (!report || !canViewReport(user, report) || report.userId === user.id) return;
+  if (!report || !(await canViewReport(user, report)) || report.userId === user.id) return;
 
   await prisma.reportConfirmation.upsert({
     where: { reportId_userId: { reportId, userId: user.id } },

@@ -28,7 +28,7 @@ export default async function PersonalReportsPage(props: {
       <h1 className="pg">
         個人管理
         <small>
-          {target.name}({target.team.name}) · {monthLabel(selected)}
+          {target.name}({target.teamNames}) · {monthLabel(selected)}
         </small>
       </h1>
       <div className="stack">
@@ -40,7 +40,7 @@ export default async function PersonalReportsPage(props: {
               <select name="user" defaultValue={target.id.toString()}>
                 {members.map((m) => (
                   <option key={m.id.toString()} value={m.id.toString()}>
-                    {m.team.name} / {m.name}
+                    {m.teamNames} / {m.name}
                     {m.isLeader ? "(所属長)" : ""}
                   </option>
                 ))}

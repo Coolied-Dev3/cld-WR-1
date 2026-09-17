@@ -3,11 +3,62 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser, logAudit } from "@/lib/auth";
-import { fromDateKey, weekStartOf } from "@/lib/week";
+import { fromDateKey, weekStartOf, toDateKey, jstToday } from "@/lib/week";
+import { MAX_TEAMS_PER_USER } from "@/lib/team-data";
 import { sendTeamsNotification } from "@/lib/notify";
 import type { Role, MasterScope } from "@prisma/client";
 
 // ---- ユーザー管理 ----
+
+type TeamInput = { teamId: bigint; isLeader: boolean };
+
+/**
+ * フォームの所属欄(team1/leader1, team2/leader2)を読み取る。
+ * 空欄は無視し、同じ事業室を2回選んだ場合は1つにまとめる。上限は MAX_TEAMS_PER_USER。
+ */
+function parseTeamInputs(formData: FormData): TeamInput[] {
+  const result: TeamInput[] = [];
+  for (let i = 1; i <= MAX_TEAMS_PER_USER; i++) {
+    const raw = String(formData.get(`team${i}`) ?? "").trim();
+    if (!raw) continue;
+    const teamId = BigInt(raw);
+    const isLeader = formData.get(`leader${i}`) === "on";
+    const dup = result.find((t) => t.teamId === teamId);
+    if (dup) dup.isLeader = dup.isLeader || isLeader;
+    else result.push({ teamId, isLeader });
+  }
+  return result;
+}
+
+/**
+ * 現所属を desired の内容に合わせる。
+ * - desired にない現所属は今日付で終了(履歴として残す)
+ * - 所属長フラグが変わったものはその場で更新
+ * - 新しい事業室は今日付で開始
+ */
+async function syncMemberships(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  userId: bigint,
+  current: { id: bigint; teamId: bigint; isLeader: boolean }[],
+  desired: TeamInput[]
+) {
+  const today = fromDateKey(toDateKey(jstToday()));
+  for (const m of current) {
+    const d = desired.find((t) => t.teamId === m.teamId);
+    if (!d) {
+      await tx.teamMembership.update({ where: { id: m.id }, data: { endDate: today } });
+    } else if (d.isLeader !== m.isLeader) {
+      await tx.teamMembership.update({ where: { id: m.id }, data: { isLeader: d.isLeader } });
+    }
+  }
+  for (const d of desired) {
+    if (!current.some((m) => m.teamId === d.teamId)) {
+      await tx.teamMembership.create({
+        data: { userId, teamId: d.teamId, isLeader: d.isLeader, startDate: today },
+      });
+    }
+  }
+}
 
 export async function createUser(formData: FormData) {
   const admin = await requireUser(["admin"]);
@@ -29,19 +80,68 @@ export async function createUser(formData: FormData) {
 
     },
   });
-  const teamId = String(formData.get("teamId") ?? "");
-  if (teamId) {
+  // 所属は最大2つ。所属長ロールで「所属長」にチェックがなければ、選んだ事業室すべての所属長にする
+  const teams = parseTeamInputs(formData);
+  if (role === "manager" && teams.length > 0 && !teams.some((t) => t.isLeader)) {
+    for (const t of teams) t.isLeader = true;
+  }
+  const startDate = fromDateKey(toDateKey(jstToday()));
+  for (const t of teams) {
     await prisma.teamMembership.create({
-      data: {
-        userId: user.id,
-        teamId: BigInt(teamId),
-        isLeader: role === "manager",
-        startDate: fromDateKey(new Date().toISOString().slice(0, 10)),
-      },
+      data: { userId: user.id, teamId: t.teamId, isLeader: t.isLeader, startDate },
     });
   }
-  await logAudit(admin.id, "user.create", "users", user.id, { name, email, role });
+  await logAudit(admin.id, "user.create", "users", user.id, {
+    name,
+    email,
+    role,
+    teams: teams.map((t) => ({ teamId: t.teamId.toString(), isLeader: t.isLeader })),
+  });
   revalidatePath("/admin/users");
+  revalidatePath("/admin/teams");
+}
+
+/** ユーザー情報と所属(最大2つ)をまとめて更新する */
+export async function updateUser(formData: FormData) {
+  const admin = await requireUser(["admin"]);
+  const userId = BigInt(String(formData.get("userId")));
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { memberships: { where: { endDate: null } } },
+  });
+  if (!user) return;
+
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const employeeCode = String(formData.get("employeeCode") ?? "").trim() || null;
+  const role = String(formData.get("role") ?? user.role) as Role;
+  const password = String(formData.get("password") ?? "").trim();
+  if (!name || !email) return;
+  if (password && password.length < 8) return;
+  const desired = parseTeamInputs(formData);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        name,
+        email,
+        employeeCode,
+        role,
+        ...(password ? { password, mustChangePassword: false } : {}),
+      },
+    });
+    await syncMemberships(tx, userId, user.memberships, desired);
+  });
+  await logAudit(admin.id, "user.update", "users", userId, {
+    name,
+    email,
+    role,
+    passwordChanged: !!password && password !== user.password,
+    teams: desired.map((t) => ({ teamId: t.teamId.toString(), isLeader: t.isLeader })),
+  });
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/teams");
 }
 
 export async function toggleUserActive(formData: FormData) {
@@ -85,6 +185,11 @@ export async function createTeam(formData: FormData) {
   revalidatePath("/admin/teams");
 }
 
+/**
+ * 所属を追加する(他の所属は終了しない)。
+ * すでにその事業室に所属していれば所属長フラグだけ更新する。
+ * 所属数が上限(MAX_TEAMS_PER_USER)に達している場合は何もしない。
+ */
 export async function assignMembership(formData: FormData) {
   const admin = await requireUser(["admin"]);
   const userId = BigInt(String(formData.get("userId")));
@@ -94,23 +199,41 @@ export async function assignMembership(formData: FormData) {
   if (!dateKey) return;
   const startDate = fromDateKey(dateKey);
 
-  await prisma.$transaction(async (tx) => {
-    // 現所属を終了(異動日の前日)
-    const prevEnd = new Date(startDate);
-    prevEnd.setUTCDate(prevEnd.getUTCDate() - 1);
-    await tx.teamMembership.updateMany({
-      where: { userId, endDate: null },
-      data: { endDate: prevEnd },
-    });
+  const current = await prisma.teamMembership.findMany({ where: { userId, endDate: null } });
+  const existing = current.find((m) => m.teamId === teamId);
+  if (existing) {
+    if (existing.isLeader !== isLeader) {
+      await prisma.teamMembership.update({ where: { id: existing.id }, data: { isLeader } });
+    }
+  } else {
+    if (current.length >= MAX_TEAMS_PER_USER) return;
     // 1チームに複数の所属長を置けるため、既存の所属長は解除しない
-    await tx.teamMembership.create({ data: { userId, teamId, isLeader, startDate } });
-  });
+    await prisma.teamMembership.create({ data: { userId, teamId, isLeader, startDate } });
+  }
   await logAudit(admin.id, "team.assign", "team_memberships", userId, {
     teamId: teamId.toString(),
     isLeader,
     startDate: dateKey,
   });
   revalidatePath("/admin/teams");
+  revalidatePath("/admin/users");
+}
+
+/** 所属を今日付で終了する(履歴として残す) */
+export async function endMembership(formData: FormData) {
+  const admin = await requireUser(["admin"]);
+  const membershipId = BigInt(String(formData.get("membershipId")));
+  const m = await prisma.teamMembership.findUnique({ where: { id: membershipId } });
+  if (!m || m.endDate) return;
+  await prisma.teamMembership.update({
+    where: { id: membershipId },
+    data: { endDate: fromDateKey(toDateKey(jstToday())) },
+  });
+  await logAudit(admin.id, "team.unassign", "team_memberships", m.userId, {
+    teamId: m.teamId.toString(),
+  });
+  revalidatePath("/admin/teams");
+  revalidatePath("/admin/users");
 }
 
 // ---- マスタ管理 ----

@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { toDateKey, jstToday } from "@/lib/week";
-import { createTeam, assignMembership } from "../actions";
+import { MAX_TEAMS_PER_USER } from "@/lib/team-data";
+import { createTeam, assignMembership, endMembership } from "../actions";
 
 export default async function AdminTeamsPage() {
   await requireUser(["admin"]);
@@ -33,7 +34,7 @@ export default async function AdminTeamsPage() {
             </form>
           </div>
           <div className="card" style={{ flex: 2 }}>
-            <h2>所属設定(異動)</h2>
+            <h2>所属追加</h2>
             <form action={assignMembership} className="filterbar">
               <label>
                 ユーザー
@@ -44,7 +45,7 @@ export default async function AdminTeamsPage() {
                 </select>
               </label>
               <label>
-                異動先
+                事業室
                 <select name="teamId" required>
                   {teams.map((t) => (
                     <option key={t.id.toString()} value={t.id.toString()}>{t.name}</option>
@@ -52,16 +53,18 @@ export default async function AdminTeamsPage() {
                 </select>
               </label>
               <label>
-                異動日
+                開始日
                 <input type="date" name="startDate" defaultValue={toDateKey(jstToday())} required style={{ width: "auto" }} />
               </label>
               <label>
                 <input type="checkbox" name="isLeader" /> 所属長にする
               </label>
-              <button className="btn pri sm">設定</button>
+              <button className="btn pri sm">追加</button>
             </form>
             <p className="note" style={{ marginBottom: 0 }}>
-              現在の所属は異動日の前日で終了し、履歴として保持されます。過去の週報は当時のチームの統計に残ります。
+              1人は最大{MAX_TEAMS_PER_USER}つの事業室に所属できます(上限に達している場合は追加されません)。
+              既存の所属はそのまま残るので、異動の場合は下の一覧で元の所属を「解除」してください。
+              解除した所属は終了日付きで履歴に残り、過去の週報は当時の事業室の統計に残ります。
               1つの事業室に所属長を複数置くこともできます。
             </p>
           </div>
@@ -82,8 +85,14 @@ export default async function AdminTeamsPage() {
                         {m.user.name}
                         {m.isLeader && <span className="pill mut" style={{ marginLeft: 6 }}>所属長</span>}
                       </td>
-                      <td className="note num" style={{ textAlign: "right" }}>
+                      <td className="note num" style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                         {toDateKey(m.startDate)}〜
+                      </td>
+                      <td style={{ textAlign: "right", width: 1 }}>
+                        <form action={endMembership} style={{ display: "inline" }}>
+                          <input type="hidden" name="membershipId" value={m.id.toString()} />
+                          <button className="btn sm">解除</button>
+                        </form>
                       </td>
                     </tr>
                   ))}

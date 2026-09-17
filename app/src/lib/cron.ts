@@ -27,20 +27,50 @@ async function markSent(type: "reminder" | "overdue" | "alert", marker: string) 
   });
 }
 
-/** 指定週の未提出者(提出対象ロールのみ)。提出不要週なら null */
-async function getUnsubmitted(weekStart: Date) {
-  const skip = await prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } });
-  if (skip) return null;
+type LeaderRow = { userId: bigint; teamId: bigint; user: { name: string; email: string } };
+
+/**
+ * 現所属を人単位にまとめる(2つの事業室に所属する人も1件にし、所属する全事業室IDを持たせる)。
+ * 通知を同じ人に二重送信しないため。
+ */
+async function getReportingUsers() {
   const memberships = await prisma.teamMembership.findMany({
     where: { endDate: null, user: reportingUserWhere },
     include: { user: true },
   });
+  const byUser = new Map<string, { userId: bigint; user: (typeof memberships)[number]["user"]; teamIds: bigint[] }>();
+  for (const m of memberships) {
+    const key = m.userId.toString();
+    const e = byUser.get(key);
+    if (e) e.teamIds.push(m.teamId);
+    else byUser.set(key, { userId: m.userId, user: m.user, teamIds: [m.teamId] });
+  }
+  return [...byUser.values()];
+}
+
+/** 本人が所属する全事業室の所属長(本人を除く。同じ人は1回だけ) */
+function leadersFor(leaders: LeaderRow[], teamIds: bigint[], excludeUserId: bigint) {
+  const seen = new Set<string>();
+  return leaders.filter((l) => {
+    if (l.userId === excludeUserId || !teamIds.includes(l.teamId)) return false;
+    const key = l.userId.toString();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** 指定週の未提出者(提出対象ロールのみ、人単位)。提出不要週なら null */
+async function getUnsubmitted(weekStart: Date) {
+  const skip = await prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } });
+  if (skip) return null;
+  const users = await getReportingUsers();
   const submitted = await prisma.weeklyReport.findMany({
     where: { weekStartDate: weekStart, status: { not: "draft" } },
     select: { userId: true },
   });
   const submittedIds = new Set(submitted.map((r) => r.userId.toString()));
-  return memberships.filter((m) => !submittedIds.has(m.userId.toString()));
+  return users.filter((u) => !submittedIds.has(u.userId.toString()));
 }
 
 /** リマインダー: 設定された「リマインダー日」の指定時刻を過ぎたら1回だけ送る */
@@ -95,8 +125,8 @@ async function runOverdueCheck() {
       mentionEmail: m.user.email,
       link: "/reports/edit",
     });
-    // 所属長が複数いる場合は全員に通知する
-    for (const leader of leaders.filter((l) => l.teamId === m.teamId && l.userId !== m.userId)) {
+    // 所属する全事業室の所属長に通知する(所属長が複数いる場合も全員)
+    for (const leader of leadersFor(leaders, m.teamIds, m.userId)) {
       await sendTeamsNotification("overdue", {
         userId: leader.userId,
         title: "メンバーの週報が未提出です",
@@ -118,10 +148,7 @@ async function runLowRatingAlert(weekStart: Date) {
 
   const alertWeeks = Number(await getAppSetting("alert_consecutive_low_weeks", "3"));
   const weeks = lastNWeekStarts(alertWeeks + 2, weekStart); // 締切を迎えた週から遡る
-  const memberships = await prisma.teamMembership.findMany({
-    where: { endDate: null, user: reportingUserWhere },
-    include: { user: true },
-  });
+  const users = await getReportingUsers();
   const leaders = await prisma.teamMembership.findMany({
     where: { endDate: null, isLeader: true },
     include: { user: true },
@@ -130,7 +157,7 @@ async function runLowRatingAlert(weekStart: Date) {
     where: { weekStartDate: { in: weeks }, status: { not: "draft" } },
   });
 
-  for (const m of memberships) {
+  for (const m of users) {
     let streak = 0;
     for (const w of weeks) {
       const r = reports.find(
@@ -140,7 +167,7 @@ async function runLowRatingAlert(weekStart: Date) {
       else if (r) break;
     }
     if (streak >= alertWeeks) {
-      for (const leader of leaders.filter((l) => l.teamId === m.teamId && l.userId !== m.userId)) {
+      for (const leader of leadersFor(leaders, m.teamIds, m.userId)) {
         await sendTeamsNotification("alert", {
           userId: leader.userId,
           title: "低評価が連続しているメンバーがいます",

@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { reportingUserWhere } from "./team-data";
+import { reportingUserWhere, reportTeamWhere } from "./team-data";
 import { lastNWeekStarts, toDateKey } from "./week";
 import { ratingScore } from "./labels";
 import type { SelfRating } from "@prisma/client";
@@ -20,9 +20,10 @@ export type DashboardStats = {
 /** teamIds を絞ると該当チーム、空配列なら全チーム対象 */
 export async function computeStats(teamIds: bigint[], numWeeks: number): Promise<DashboardStats> {
   const weeks = lastNWeekStarts(numWeeks).reverse(); // 古い順
-  const teamFilter = teamIds.length > 0 ? { teamId: { in: teamIds } } : {};
+  // 2つの事業室に所属する人の週報は、どちらの事業室の集計にも含める
+  const teamFilter = reportTeamWhere(teamIds);
 
-  const [reports, skipWeeks, memberCount] = await Promise.all([
+  const [reports, skipWeeks, memberRows] = await Promise.all([
     prisma.weeklyReport.findMany({
       where: {
         ...teamFilter,
@@ -36,14 +37,18 @@ export async function computeStats(teamIds: bigint[], numWeeks: number): Promise
       },
     }),
     prisma.skipWeek.findMany({ where: { weekStartDate: { in: weeks } } }),
-    prisma.teamMembership.count({
+    // 人数は延べ所属数ではなく人単位で数える(2所属の人を二重に数えない)
+    prisma.teamMembership.findMany({
       where: {
         ...(teamIds.length > 0 ? { teamId: { in: teamIds } } : {}),
         endDate: null,
         user: reportingUserWhere,
       },
+      select: { userId: true },
+      distinct: ["userId"],
     }),
   ]);
+  const memberCount = memberRows.length;
 
   const skipKeys = new Set(skipWeeks.map((s) => toDateKey(s.weekStartDate)));
   const effectiveWeeks = weeks.filter((w) => !skipKeys.has(toDateKey(w)));

@@ -147,7 +147,7 @@ export default async function StatusPage(props: {
                         <b>{m.name}</b>
                         {m.isLeader && <span className="pill mut" style={{ marginLeft: 6 }}>所属長</span>}
                       </td>
-                      <td className="note">{m.team.name}</td>
+                      <td className="note">{m.teamNames}</td>
                       <td>
                         {r ? <span className="pill ok">提出済</span> : <span className="pill bad">未提出</span>}
                       </td>
