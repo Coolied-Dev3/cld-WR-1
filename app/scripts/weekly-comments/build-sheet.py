@@ -1,6 +1,9 @@
 """コメント案の確認用 Excel シートを作成する。
 
-    python scripts/weekly-comments/build-sheet.py <reports.json> <out.xlsx> [drafts.json] [--sheet 2026-09-07]
+    python scripts/weekly-comments/build-sheet.py <reports.json> <out.xlsx> [drafts.json] [--sheet 2026-09-07] [--append]
+
+--append: 同じ日付のシートが既にあるとき、作り直さずに「まだ載っていない週報」だけを末尾に足す
+(後出しで提出された週報を、登録済みの行を残したまま同じシートで扱う)。
 
 reports.json は export-reports.mjs の出力。
 drafts.json は {"<週報ID>": {"draft": "コメント案", "register": "はい|いいえ", "note": "備考"}} 形式(任意)。
@@ -82,7 +85,7 @@ def estimate_height(values, widths):
     return min(max(30, lines * 15), 210)
 
 
-def build(reports_path, out_path, drafts_path=None, sheet_name=None):
+def build(reports_path, out_path, drafts_path=None, sheet_name=None, append=False):
     data = json.load(open(reports_path, encoding="utf-8"))
     week, reports = data["week"], data["reports"]
     drafts = json.load(open(drafts_path, encoding="utf-8")) if drafts_path else {}
@@ -92,11 +95,26 @@ def build(reports_path, out_path, drafts_path=None, sheet_name=None):
     # 既存ブックがあれば追記する(1回の作成につき1シート)
     if os.path.exists(out_path):
         wb = load_workbook(out_path)
-        if sheet_name in wb.sheetnames:
-            del wb[sheet_name]
     else:
         wb = Workbook()
         del wb[wb.sheetnames[0]]
+
+    # --append: 同じ日付のシートが既にあれば作り直さず、まだ載っていない週報だけ末尾に足す
+    # (後出しで提出された週報を、登録済みの行を残したまま同じシートで扱うため)
+    existing_ids = set()
+    if append and sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        existing_ids = {
+            int(ws.cell(r, 1).value) for r in range(5, ws.max_row + 1) if ws.cell(r, 1).value is not None
+        }
+        reports = [r for r in reports if int(r["reportId"]) not in existing_ids]
+        if not reports:
+            print(f"追加する週報はありません(シート {sheet_name} に全て載っています)")
+            return
+        return append_rows(wb, ws, out_path, reports, drafts, sheet_name, week)
+
+    if sheet_name in wb.sheetnames:
+        del wb[sheet_name]
     ws = wb.create_sheet(sheet_name)
 
     ws["A1"] = f"週報コメント案  作成日: {sheet_name}  対象週: {week}  投稿者: 小野崎 康己(役員)"
@@ -122,8 +140,24 @@ def build(reports_path, out_path, drafts_path=None, sheet_name=None):
         ws.column_dimensions[get_column_letter(c)].width = width
     ws.row_dimensions[header_row].height = 28
 
+    last = write_rows(ws, header_row + 1, reports, drafts)
+    ws.freeze_panes = f"A{header_row + 1}"
+    ws.auto_filter.ref = f"A{header_row}:N{last}"
+    finish(wb, out_path, sheet_name, week, len(reports))
+
+
+def append_rows(wb, ws, out_path, reports, drafts, sheet_name, week):
+    """既存シートの末尾に、まだ載っていない週報の行を足す。"""
+    first = ws.max_row + 1
+    last = write_rows(ws, first, reports, drafts)
+    ws.auto_filter.ref = f"A4:N{last}"
+    finish(wb, out_path, sheet_name, week, len(reports), appended=True)
+
+
+def write_rows(ws, start_row, reports, drafts):
+    """週報1件を1行として書き込み、最後の行番号を返す。"""
     widths = [w for _, w in COLUMNS]
-    row = header_row + 1
+    row = start_row
     for r in reports:
         d = drafts.get(r["reportId"], {})
         already = r.get("existingComments", 0) > 0
@@ -169,16 +203,17 @@ def build(reports_path, out_path, drafts_path=None, sheet_name=None):
     last = row - 1
     dv = DataValidation(type="list", formula1='"はい,いいえ"', allow_blank=False, showDropDown=False)
     ws.add_data_validation(dv)
-    dv.add(f"M{header_row + 1}:M{last}")
+    dv.add(f"M{start_row}:M{last}")
+    return last
 
-    ws.freeze_panes = f"A{header_row + 1}"
-    ws.auto_filter.ref = f"A{header_row}:N{last}"
 
-    add_readme(wb, sheet_name, week, len(reports))
+def finish(wb, out_path, sheet_name, week, count, appended=False):
+    add_readme(wb, sheet_name, week, count)
     # 日付シートを新しい順に並べ、「使い方」を末尾に置く
     wb._sheets.sort(key=lambda s: ("", "") if s.title == "使い方" else ("0", s.title), reverse=True)
     wb.save(out_path)
-    print(f"{len(reports)}件 -> {out_path} [シート: {sheet_name} / 対象週: {week}]")
+    verb = "追加" if appended else "作成"
+    print(f"{count}件{verb} -> {out_path} [シート: {sheet_name} / 対象週: {week}]")
 
 
 def add_readme(wb, sheet_name, week, count):
@@ -221,5 +256,6 @@ def add_readme(wb, sheet_name, week, count):
 if __name__ == "__main__":
     argv = sys.argv[1:]
     sheet = argv[argv.index("--sheet") + 1] if "--sheet" in argv else None
+    append = "--append" in argv
     positional = [a for i, a in enumerate(argv) if not a.startswith("--") and (i == 0 or argv[i - 1] != "--sheet")]
-    build(positional[0], positional[1], positional[2] if len(positional) > 2 else None, sheet)
+    build(positional[0], positional[1], positional[2] if len(positional) > 2 else None, sheet, append)
