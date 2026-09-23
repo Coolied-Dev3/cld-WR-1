@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { weekRangeLabel, addDays } from "@/lib/week";
-import { getDeadlineSettings, resolveTargetWeek, deadlineAtOf, deadlineDisplay } from "@/lib/deadline";
+import { weekRangeLabel, addDays, toDateKey } from "@/lib/week";
+import { getDeadlineSettings, resolveEditableWeek, deadlineAtOf, deadlineDisplay } from "@/lib/deadline";
 import { masterScopeFor } from "@/lib/team-data";
 import { ReportForm } from "./report-form";
 import type { CategoryOption, IssueRow } from "./issues-editor";
@@ -31,16 +30,29 @@ async function loadCategories(
 }
 
 export default async function ReportEditPage(props: {
-  searchParams: Promise<{ copy?: string }>;
+  searchParams: Promise<{ copy?: string; week?: string }>;
 }) {
   // 役員も週報を提出する。使用する課題・対策マスタはロールで切り替える
   const user = await requireUser(["member", "manager", "executive"]);
   const scope = masterScopeFor(user.role);
-  const { copy } = await props.searchParams;
+  const { copy, week } = await props.searchParams;
 
-  // 締切が翌週にずれている場合、締切日までは前週が対象になる
+  // 通常は「いま提出すべき週」。締切後に書きたいケースのため前週にも切り替えられる
   const settings = await getDeadlineSettings();
-  const weekStart = resolveTargetWeek(settings);
+  const { weekStart, prevWeek, isPrev } = resolveEditableWeek(settings, week);
+  const weekKey = toDateKey(weekStart);
+  const switchHref = isPrev ? "/reports/edit" : `/reports/edit?week=${toDateKey(prevWeek)}`;
+  const switchLabel = isPrev ? "今週の週報に戻る" : "前週の週報を書く";
+
+  const heading = (
+    <h1 className="pg">
+      週報入力
+      <small>
+        対象週: {weekRangeLabel(weekStart)}
+        {isPrev && <span className="pill warn" style={{ marginLeft: 8 }}>前週分</span>}
+      </small>
+    </h1>
+  );
 
   const [skip, existing, issueCategories, cmCategories] = await Promise.all([
     prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } }),
@@ -55,36 +67,38 @@ export default async function ReportEditPage(props: {
   if (skip) {
     return (
       <>
-        <h1 className="pg">週報入力<small>対象週: {weekRangeLabel(weekStart)}</small></h1>
+        {heading}
         <div className="card">
           <p>この週は提出不要週です({skip.reason})。</p>
-          <Link href="/" className="btn">ホームへ戻る</Link>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link href={switchHref} className="btn">{switchLabel}</Link>
+            <Link href="/" className="btn">ホームへ戻る</Link>
+          </div>
         </div>
       </>
     );
   }
 
-  const pastDeadline =
-    new Date() > deadlineAtOf(weekStart, settings.deadlineOffset, settings.deadlineTime);
-  const locked = existing?.status === "locked";
-
-  if (pastDeadline || locked) {
+  if (existing?.status === "locked") {
     return (
       <>
-        <h1 className="pg">週報入力<small>対象週: {weekRangeLabel(weekStart)}</small></h1>
+        {heading}
         <div className="card">
-          <p>
-            {locked
-              ? "この週報はロックされています。修正が必要な場合は管理者に連絡してください。"
-              : `提出締切(${deadlineDisplay(weekStart, settings)})を過ぎています。修正が必要な場合は管理者に連絡してください。`}
-          </p>
-          {existing && <Link href={`/reports/${existing.id}`} className="btn">提出内容を見る</Link>}
+          <p>この週報はロックされています。修正が必要な場合は管理者に連絡してください。</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link href={`/reports/${existing.id}`} className="btn">提出内容を見る</Link>
+            <Link href={switchHref} className="btn">{switchLabel}</Link>
+          </div>
         </div>
       </>
     );
   }
 
-  // 先週コピー
+  // 締切を過ぎていても保存・提出はできる(提出日時が記録されるので遅れは一覧で分かる)
+  const pastDeadline =
+    new Date() > deadlineAtOf(weekStart, settings.deadlineOffset, settings.deadlineTime);
+
+  // 先週コピー(対象週の1つ前の週の内容)
   let source = existing;
   if (!existing && copy === "1") {
     source = await prisma.weeklyReport.findUnique({
@@ -116,22 +130,32 @@ export default async function ReportEditPage(props: {
     isSubmitted: existing?.status === "submitted",
   };
 
+  const copyHref = isPrev ? `/reports/edit?week=${weekKey}&copy=1` : "/reports/edit?copy=1";
+
   return (
     <>
-      <h1 className="pg">
-        週報入力<small>対象週: {weekRangeLabel(weekStart)}</small>
-      </h1>
+      {heading}
       <div
         style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}
       >
-        <span className="note">提出締切: {deadlineDisplay(weekStart, settings)}</span>
-        {!existing && (
-          <Link href="/reports/edit?copy=1" className="btn sm">
-            先週の内容をコピー
-          </Link>
-        )}
+        <span className="note">
+          提出締切: {deadlineDisplay(weekStart, settings)}
+          {pastDeadline && (
+            <span style={{ color: "var(--warn)", marginLeft: 8 }}>
+              締切を過ぎています(提出はできます。提出日時が記録されます)
+            </span>
+          )}
+        </span>
+        <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link href={switchHref} className="btn sm">{switchLabel}</Link>
+          {!existing && (
+            <Link href={copyHref} className="btn sm">
+              先週の内容をコピー
+            </Link>
+          )}
+        </span>
       </div>
-      <ReportForm issueCategories={issueCategories} cmCategories={cmCategories} initial={initial} />
+      <ReportForm issueCategories={issueCategories} cmCategories={cmCategories} initial={initial} weekKey={weekKey} />
     </>
   );
 }

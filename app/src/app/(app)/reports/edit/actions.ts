@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser, logAudit } from "@/lib/auth";
 import { weekLabel } from "@/lib/week";
-import { getDeadlineSettings, resolveTargetWeek, deadlineAtOf, deadlineDisplay } from "@/lib/deadline";
+import { getDeadlineSettings, resolveEditableWeek } from "@/lib/deadline";
 import { masterScopeFor, primaryMembership } from "@/lib/team-data";
 import { sendTeamsNotification } from "@/lib/notify";
 import type { ComplianceLevel, ComplianceVisibility, SelfRating } from "@prisma/client";
@@ -15,14 +15,12 @@ export async function saveReport(_prev: SaveState, formData: FormData): Promise<
   const user = await requireUser(["member", "manager", "executive"]);
   const scope = masterScopeFor(user.role);
   const settings = await getDeadlineSettings();
-  const weekStart = resolveTargetWeek(settings);
+  // 対象週は「いま提出すべき週」か、その前週のみ(前週は締切後の後出し提出を想定)。
+  // 締切を過ぎていても保存・提出はできる(提出日時が記録されるので遅れは一覧で分かる)
+  const { weekStart } = resolveEditableWeek(settings, String(formData.get("week") ?? ""));
 
   const skip = await prisma.skipWeek.findUnique({ where: { weekStartDate: weekStart } });
   if (skip) return { error: `この週は提出不要週です(${skip.reason})。` };
-
-  if (new Date() > deadlineAtOf(weekStart, settings.deadlineOffset, settings.deadlineTime)) {
-    return { error: `提出締切(${deadlineDisplay(weekStart, settings)})を過ぎています。管理者に連絡してください。` };
-  }
 
   // 週報レコードには主所属を記録する(2所属の場合は先に登録された方)
   const membership = primaryMembership(user.memberships);

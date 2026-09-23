@@ -10,9 +10,12 @@ export function ReportForm({
   issueCategories,
   cmCategories,
   initial,
+  weekKey,
 }: {
   issueCategories: CategoryOption[];
   cmCategories: CategoryOption[];
+  /** 対象週の月曜日("YYYY-MM-DD")。前週を書いているときにサーバー側で週を特定するため */
+  weekKey: string;
   initial: {
     workSummary: string;
     selfRating: string;
@@ -29,6 +32,7 @@ export function ReportForm({
 
   return (
     <form action={formAction} className="stack">
+      <input type="hidden" name="week" value={weekKey} />
       {state.error && (
         <div className="alert err">
           <span className="ic">!</span>

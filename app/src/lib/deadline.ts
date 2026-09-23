@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { addDays, currentWeekStart, jstToday, weekStartOf } from "./week";
+import { addDays, currentWeekStart, jstToday, weekStartOf, toDateKey } from "./week";
 
 /**
  * 提出締切の設定。
@@ -97,6 +97,24 @@ export function resolveTargetWeek(s: DeadlineSettings, now: Date = new Date()): 
     return prevWeek;
   }
   return thisWeek;
+}
+
+/**
+ * 週報入力画面で編集できる週を決める。
+ *
+ * 通常は resolveTargetWeek の週(いま提出すべき週)だが、締切を過ぎてから書きたいケースが
+ * あるため、その1つ前の週(前週)も選べる。weekKey に前週の日付("YYYY-MM-DD")が
+ * 渡されたときだけ前週を対象にし、それ以外の値は無視して通常の週にする。
+ */
+export function resolveEditableWeek(
+  s: DeadlineSettings,
+  weekKey?: string,
+  now: Date = new Date()
+): { weekStart: Date; defaultWeek: Date; prevWeek: Date; isPrev: boolean } {
+  const defaultWeek = resolveTargetWeek(s, now);
+  const prevWeek = addDays(defaultWeek, -7);
+  const isPrev = weekKey === toDateKey(prevWeek);
+  return { weekStart: isPrev ? prevWeek : defaultWeek, defaultWeek, prevWeek, isPrev };
 }
 
 /** 今日が「対象週の締切日」に当たる場合、その対象週を返す(当たらなければ null) */
