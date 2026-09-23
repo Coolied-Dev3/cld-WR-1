@@ -41,8 +41,31 @@ export default async function ReportEditPage(props: {
   const settings = await getDeadlineSettings();
   const { weekStart, prevWeek, isPrev } = resolveEditableWeek(settings, week);
   const weekKey = toDateKey(weekStart);
+
+  // 前週は「まだ提出していない人」だけが書ける(提出済みなら切替ボタンも出さない)
+  const prevReport = await prisma.weeklyReport.findUnique({
+    where: { userId_weekStartDate: { userId: user.id, weekStartDate: prevWeek } },
+    select: { id: true, status: true },
+  });
+  const prevSubmitted = prevReport !== null && prevReport.status !== "draft";
+  const canSwitch = isPrev || !prevSubmitted;
   const switchHref = isPrev ? "/reports/edit" : `/reports/edit?week=${toDateKey(prevWeek)}`;
   const switchLabel = isPrev ? "今週の週報に戻る" : "前週の週報を書く";
+
+  if (isPrev && prevSubmitted) {
+    return (
+      <>
+        <h1 className="pg">週報入力<small>対象週: {weekRangeLabel(weekStart)}</small></h1>
+        <div className="card">
+          <p>前週分の週報はすでに提出済みです。修正が必要な場合は管理者に連絡してください。</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link href={`/reports/${prevReport!.id}`} className="btn">提出内容を見る</Link>
+            <Link href="/reports/edit" className="btn">今週の週報に戻る</Link>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   const heading = (
     <h1 className="pg">
@@ -71,7 +94,7 @@ export default async function ReportEditPage(props: {
         <div className="card">
           <p>この週は提出不要週です({skip.reason})。</p>
           <div style={{ display: "flex", gap: 8 }}>
-            <Link href={switchHref} className="btn">{switchLabel}</Link>
+            {canSwitch && <Link href={switchHref} className="btn">{switchLabel}</Link>}
             <Link href="/" className="btn">ホームへ戻る</Link>
           </div>
         </div>
@@ -87,7 +110,7 @@ export default async function ReportEditPage(props: {
           <p>この週報はロックされています。修正が必要な場合は管理者に連絡してください。</p>
           <div style={{ display: "flex", gap: 8 }}>
             <Link href={`/reports/${existing.id}`} className="btn">提出内容を見る</Link>
-            <Link href={switchHref} className="btn">{switchLabel}</Link>
+            {canSwitch && <Link href={switchHref} className="btn">{switchLabel}</Link>}
           </div>
         </div>
       </>
@@ -147,7 +170,7 @@ export default async function ReportEditPage(props: {
           )}
         </span>
         <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link href={switchHref} className="btn sm">{switchLabel}</Link>
+          {canSwitch && <Link href={switchHref} className="btn sm">{switchLabel}</Link>}
           {!existing && (
             <Link href={copyHref} className="btn sm">
               先週の内容をコピー
